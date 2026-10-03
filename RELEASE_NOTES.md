@@ -2,6 +2,12 @@
 
 Democracy Web 1.0.4 improves first-time multiplayer connectivity without weakening the 1.0.3 authority/security model.
 
+## Signaling hotfix
+- Democracy Web now uses a curated set of six Nostr signaling relays instead of Trystero's full default pool.
+- The failing `wss://nostr.tegila.com.br/` relay is not used.
+- Individual relay failures are silent; the Multiplayer page reports how many signaling relays are actually connected.
+- One failed signaling relay does not imply that the lobby or WebRTC peer connection has failed.
+
 ## Fixed in this release
 - Initial join acknowledgement and canonical checkpoint are now delivered as one atomic signed bootstrap packet, removing a race that could leave clients stuck on “Waiting for join approval…”.
 - Full invite links continue to pin the Lobby Owner fingerprint automatically.

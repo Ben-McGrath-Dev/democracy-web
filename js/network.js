@@ -94,9 +94,24 @@ export function setTurnSettings({ urls = [], username = '', credential = '', for
 
 export function clearTurnSettings() { localStorage.removeItem(TURN_SETTINGS_KEY); }
 
+const SIGNALING_RELAYS = [
+  'wss://nos.lol',
+  'wss://relay.mostr.pub',
+  'wss://relay.sigit.io',
+  'wss://purplerelay.com',
+  'wss://relay.agorist.space',
+  'wss://yabu.me/v2'
+];
+
 function trysteroRoomConfig() {
   const turn = readTurnSettings();
-  const config = { appId: APP_ID };
+  const config = {
+    appId: APP_ID,
+    relayConfig: {
+      urls: SIGNALING_RELAYS,
+      warnOnRelayFailure: false
+    }
+  };
   if (turn.urls.length) {
     config.turnConfig = [{
       urls: turn.urls,
@@ -1047,6 +1062,17 @@ export function subscribeNetwork(fn) { listeners.add(fn); return () => listeners
 export function getLocalPlayerId() { return localPlayerId; }
 export function isOnlinePeer() { return role === 'peer'; }
 export function isOnlineOwner() { return role === 'owner'; }
+function signalingStatus() {
+  const sockets = importedModule?.getRelaySockets?.() ?? {};
+  const values = Object.values(sockets);
+  return {
+    configured: SIGNALING_RELAYS.length,
+    observed: values.length,
+    open: values.filter(socket => socket?.readyState === 1).length,
+    connecting: values.filter(socket => socket?.readyState === 0).length
+  };
+}
+
 export function getNetworkStatus() {
   const turn = readTurnSettings();
   return {
@@ -1058,6 +1084,7 @@ export function getNetworkStatus() {
     peerInfo: Object.fromEntries(peerInfo), authorityEpoch, backupOwnerPlayerId: networkMeta().backupOwnerPlayerId ?? null,
     reconnectAttempt, lastOwnerSeenAt, lastError,
     verifiedStateHash: canonicalStateHash(getState()), verifiedTransitionCount: recentTransitions().length,
+    signaling: signalingStatus(),
     turn: { configured: Boolean(turn.urls.length), urlCount: turn.urls.length, forceRelay: turn.forceRelay }
   };
 }

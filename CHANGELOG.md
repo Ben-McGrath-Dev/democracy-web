@@ -2,6 +2,12 @@
 
 ## 1.0.4 — Secure first-join reliability
 
+### Signaling hotfix
+- Replaced Trystero's broad default Nostr relay pool with a smaller Democracy Web signaling list that excludes the repeatedly failing `nostr.tegila.com.br` endpoint.
+- Suppressed individual relay-failure warnings while retaining multiple independent relays for redundancy.
+- Added signaling relay health to the Multiplayer status panel so a partial relay outage is shown as degraded rather than as a lobby failure.
+- Bumped the service-worker cache so the updated signaling configuration replaces cached 1.0.4 assets.
+
 - Replaced the two-message initial join acknowledgement/checkpoint with one atomic signed bootstrap packet, removing a first-join race.
 - Full invite links still pin the Lobby Owner fingerprint automatically.
 - Room-code-only joins now discover a self-signed owner fingerprint and require explicit human verification before pinning it.
