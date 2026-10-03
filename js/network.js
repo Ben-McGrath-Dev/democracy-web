@@ -101,6 +101,49 @@ export function setTurnSettings({ urls = [], username = '', credential = '', for
 
 export function clearTurnSettings() { localStorage.removeItem(TURN_SETTINGS_KEY); }
 
+
+function joinErrorMessage(details) {
+  const raw = details?.error ?? details?.message ?? details;
+  if (raw instanceof Error) return raw.message || String(raw);
+  if (typeof raw === 'string') return raw;
+  try { return JSON.stringify(raw); } catch { return String(raw || 'WebRTC peer connection failed'); }
+}
+
+function handleTrysteroJoinError(details) {
+  const failedPeerId = typeof details?.peerId === 'string' ? details.peerId : null;
+  const message = joinErrorMessage(details) || 'WebRTC peer connection failed';
+  const peerLabel = failedPeerId ? `peer ${failedPeerId.slice(0, 8)}…` : 'a peer';
+
+  // Trystero's onJoinError is peer-scoped: a failed WebRTC pairing does not mean
+  // this browser has left the signaling room. Never mark the Lobby Owner offline
+  // just because one joining/reconnecting peer could not establish transport.
+  if (role === 'owner') {
+    lastError = `Could not establish WebRTC with ${peerLabel}: ${message}`;
+    if (room) connectionState = 'connected';
+    emit();
+    return;
+  }
+
+  if (role === 'peer') {
+    // Ignore failures for unrelated peers. If the failed pairing could be the
+    // verified owner, stay in the secure discovery/retry flow rather than
+    // declaring the entire lobby disconnected.
+    if (ownerPeerId && failedPeerId && failedPeerId !== ownerPeerId) {
+      lastError = `WebRTC attempt with ${peerLabel} failed: ${message}`;
+      emit();
+      return;
+    }
+    lastError = `WebRTC connection attempt failed: ${message}${readTurnSettings().urls.length ? '' : ' TURN is not configured.'}`;
+    if (waitingJoin || awaitingInitialState) {
+      connectionState = expectedOwnerFingerprint ? 'reconnecting' : 'discovering-owner';
+      if (expectedOwnerFingerprint) startJoinRetry();
+    } else if (room) {
+      connectionState = 'reconnecting';
+    }
+    emit();
+  }
+}
+
 const SIGNALING_RELAYS = [
   'wss://nos.lol',
   'wss://relay.mostr.pub',
@@ -1143,7 +1186,7 @@ export async function createOnlineLobby(code = generateRoomCode()) {
   }
   authorityEpoch = Math.max(getState().network?.authorityEpoch ?? 0, 0) + 1;
   setMeta({ authorityEpoch, ownerPlayerId: localPlayerId, reconnectTokens: {}, recentTransitions: getState().network?.recentTransitions ?? [] });
-  setupRoom(mod.joinRoom(trysteroRoomConfig(), roomCode, { onJoinError: e => { lastError = String(e?.message || e); connectionState = 'disconnected'; emit(); } }), mod.selfId);
+  setupRoom(mod.joinRoom(trysteroRoomConfig(), roomCode, { onJoinError: handleTrysteroJoinError }), mod.selfId);
   connectionState = 'connected';
   saveSession();
   broadcastPresence();
@@ -1179,7 +1222,7 @@ export async function joinOnlineLobby(code, name, { forceNewIdentity = false, ow
   displayName = chosenName;
   localPlayerId = prior?.playerId || null;
   authorityEpoch = 0; // Never inherit authority from an unrelated/stale local save while joining.
-  setupRoom(mod.joinRoom(trysteroRoomConfig(), roomCode, { onJoinError: e => { lastError = String(e?.message || e); connectionState = 'disconnected'; emit(); } }), mod.selfId);
+  setupRoom(mod.joinRoom(trysteroRoomConfig(), roomCode, { onJoinError: handleTrysteroJoinError }), mod.selfId);
   if (expectedOwnerFingerprint) startJoinRetry();
   emit();
   return getNetworkStatus();
