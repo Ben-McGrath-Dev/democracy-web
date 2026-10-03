@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="description" content="A peer-to-peer browser political simulation game">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://esm.run https://esm.sh https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://esm.run https://esm.sh https://cdn.jsdelivr.net https://*.nostr.band https://*.relay.tools wss: https:; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="referrer" content="no-referrer">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./assets/icon-192.png">
+  <meta name="color-scheme" content="light">
+  <title>Democracy Web</title>
+  <link rel="stylesheet" href="./css/variables.css">
+  <link rel="stylesheet" href="./css/main.css">
+  <link rel="stylesheet" href="./css/components.css">
+  <link rel="stylesheet" href="./css/responsive.css">
+</head>
+<body>
+  <a class="skip-link" href="#view">Skip to main content</a>
+  <div id="app" class="app-shell">
+    <aside class="sidebar" aria-label="Main navigation">
+      <button class="brand sidebar-brand" data-route="home" aria-label="Democracy Web home">
+        <span class="brand-mark">D</span>
+        <span><strong>Democracy Web</strong><small><span id="appVersion"></span> · <span id="saveStatus">Local</span></small></span>
+      </button>
+
+      <nav class="side-nav">
+        <div class="nav-group"><span class="nav-label">Overview</span>
+          <button data-route="dashboard"><span class="nav-icon">⌂</span>Dashboard</button>
+          <button data-route="multiplayer"><span class="nav-icon">◎</span>Multiplayer</button>
+          <button data-route="notifications"><span class="nav-icon">◔</span>Notifications <span id="notificationBadge" class="nav-badge" hidden>0</span></button>
+        </div>
+        <div class="nav-group"><span class="nav-label">Politics</span>
+          <button data-route="votes"><span class="nav-icon">✓</span>Votes</button>
+          <button data-route="elections"><span class="nav-icon">◫</span>Elections</button>
+          <button data-route="parliament"><span class="nav-icon">▥</span>Parliament</button>
+          <button data-route="government"><span class="nav-icon">◆</span>Government</button>
+          <button data-route="parties"><span class="nav-icon">●</span>Parties</button>
+          <button data-route="players"><span class="nav-icon">◉</span>Players</button>
+        </div>
+        <div class="nav-group"><span class="nav-label">Law & Constitution</span>
+          <button data-route="laws"><span class="nav-icon">§</span>Laws</button>
+          <button data-route="constitution"><span class="nav-icon">¶</span>Constitution</button>
+          <button data-route="committees"><span class="nav-icon">◇</span>Committees</button>
+          <button data-route="cases"><span class="nav-icon">⚖</span>Cases</button>
+          <button data-route="rulebook"><span class="nav-icon">▤</span>Full Rulebook</button>
+        </div>
+        <div class="nav-group"><span class="nav-label">System</span>
+          <button data-route="recovery"><span class="nav-icon">↻</span>Recovery</button>
+          <button data-route="load"><span class="nav-icon">▣</span>Saves</button>
+          <button data-route="testlab"><span class="nav-icon">⌁</span>Test Lab</button>
+          <button data-route="release"><span class="nav-icon">★</span>Release</button>
+          <button data-route="about"><span class="nav-icon">i</span>About</button>
+        </div>
+      </nav>
+      <div class="sidebar-footer"><button class="btn btn-primary btn-block" data-route="create">＋ New Democracy</button></div>
+    </aside>
+
+    <header class="mobile-header">
+      <button class="brand" data-route="home" aria-label="Democracy Web home"><span class="brand-mark">D</span><span><strong>Democracy</strong><small id="mobileSaveStatus">Web</small></span></button>
+      <button class="icon-btn" data-action="toggle-mobile-menu" aria-label="Open navigation" aria-expanded="false">☰</button>
+    </header>
+
+    <div id="securityBanner" class="security-banner" hidden></div>
+    <main id="view" class="page-shell" tabindex="-1"></main>
+
+    <nav class="mobile-dock" aria-label="Quick navigation">
+      <button data-route="dashboard"><span>⌂</span><small>Home</small></button>
+      <button data-route="votes"><span>✓</span><small>Votes</small></button>
+      <button data-route="parliament"><span>▥</span><small>Parliament</small></button>
+      <button data-route="government"><span>◆</span><small>Gov</small></button>
+      <button data-action="toggle-mobile-menu"><span>☰</span><small>Menu</small></button>
+    </nav>
+
+    <div id="mobileMenu" class="mobile-menu" aria-hidden="true">
+      <button class="mobile-menu-backdrop" data-action="toggle-mobile-menu" aria-label="Close navigation"></button>
+      <section class="mobile-menu-sheet" aria-label="All navigation">
+        <div class="mobile-menu-handle"></div>
+        <div class="section-header compact-header"><div><h2>Navigate</h2><p class="muted">All Democracy tools</p></div><button class="icon-btn" data-action="toggle-mobile-menu" aria-label="Close">×</button></div>
+        <div class="mobile-menu-grid">
+          <button data-route="dashboard">⌂ <span>Dashboard</span></button><button data-route="multiplayer">◎ <span>Multiplayer</span></button>
+          <button data-route="notifications">◔ <span>Notifications</span></button>
+          <button data-route="votes">✓ <span>Votes</span></button><button data-route="elections">◫ <span>Elections</span></button>
+          <button data-route="parliament">▥ <span>Parliament</span></button><button data-route="government">◆ <span>Government</span></button>
+          <button data-route="parties">● <span>Parties</span></button><button data-route="players">◉ <span>Players</span></button>
+          <button data-route="laws">§ <span>Laws</span></button><button data-route="constitution">¶ <span>Constitution</span></button>
+          <button data-route="committees">◇ <span>Committees</span></button><button data-route="cases">⚖ <span>Cases</span></button>
+          <button data-route="rulebook">▤ <span>Rulebook</span></button><button data-route="recovery">↻ <span>Recovery</span></button>
+          <button data-route="load">▣ <span>Saves</span></button><button data-route="release">★ <span>Release</span></button><button data-route="about">i <span>About</span></button>
+        </div>
+        <button class="btn btn-primary btn-block" data-route="create">＋ Create Democracy</button>
+      </section>
+    </div>
+
+    <div id="connectionAnnouncer" class="sr-only" aria-live="polite"></div>
+    <div id="toastRegion" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+    <div id="modalRoot"></div>
+  </div>
+  <script type="module" src="./js/app.js"></script>
+</body>
+</html>

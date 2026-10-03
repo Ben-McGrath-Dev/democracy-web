@@ -1,0 +1,12 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+for (const f of ['.nojekyll','.github/workflows/pages.yml','404.html','start-lan.bat','SECURITY.md','manifest.webmanifest','sw.js']) assert.equal(fs.existsSync(f),true,`missing ${f}`);
+const workflow=fs.readFileSync('.github/workflows/pages.yml','utf8');
+assert.match(workflow,/actions\/deploy-pages@v4/);
+assert.match(workflow,/actions\/upload-pages-artifact@v4/);
+const sw=fs.readFileSync('sw.js','utf8');
+assert.match(sw,/(?:democracy-web-v10[0-9]+|democracy-web-v0\.30)/);
+assert.match(sw,/\.\/js\/security\.js/);
+const readme=fs.readFileSync('README.md','utf8');
+assert.match(readme,/Phase 30 — GitHub Pages Deployment/);
+console.log('PASS Phase 30 GitHub Pages deployment package tests.');

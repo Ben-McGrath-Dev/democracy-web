@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "laws": [
+    {"id":"LAW-START-1","title":"No Fraud","status":"starting"},
+    {"id":"LAW-START-2","title":"No Impersonation","status":"starting"},
+    {"id":"LAW-START-3","title":"No Vote Interference","status":"starting"},
+    {"id":"LAW-START-4","title":"No Serious Harassment","status":"starting"},
+    {"id":"LAW-START-5","title":"No Retaliation","status":"starting"}
+  ]
+}

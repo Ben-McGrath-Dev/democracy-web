@@ -1,0 +1,23 @@
+{
+  "id": "democracy-v2",
+  "title": "Democracy Constitution",
+  "version": 2,
+  "status": "placeholder-structured-data",
+  "note": "Phase 0 establishes Constitution data loading. Full section-by-section Constitution data will be populated when the Constitution system is implemented.",
+  "sections": [
+    {
+      "id": "section-1",
+      "number": "1",
+      "title": "Purpose and Authority",
+      "category": "BASE",
+      "text": "Democracy is a political simulation game governed by its Constitution."
+    },
+    {
+      "id": "section-2",
+      "number": "2",
+      "title": "Constitutional Hierarchy",
+      "category": "BASE",
+      "text": "The Constitution is the highest authority within the game."
+    }
+  ]
+}
