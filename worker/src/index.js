@@ -59,6 +59,11 @@ function safeParse(value, fallback = null) {
   try { return JSON.parse(value); } catch { return fallback; }
 }
 
+function firstRow(cursor) {
+  const rows = cursor.toArray();
+  return rows.length ? rows[0] : null;
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -72,7 +77,7 @@ export default {
     if (!originAllowed(request, env)) return json({ error: 'origin_not_allowed' }, { status: 403 });
 
     if (url.pathname === '/health' && request.method === 'GET') {
-      return json({ ok: true, service: 'democracy-web-cloud', protocol: CLOUD_PROTOCOL_VERSION, phases: [36, 37, 38, 39, 40, 41, 42, 43, 44], release: '1.1.0', transport: 'cloud-websocket' }, { headers: cors });
+      return json({ ok: true, service: 'democracy-web-cloud', protocol: CLOUD_PROTOCOL_VERSION, phases: [36, 37, 38, 39, 40, 41, 42, 43, 44], release: '1.1.3', transport: 'cloud-websocket' }, { headers: cors });
     }
 
     if (url.pathname === '/rooms' && request.method === 'POST') {
@@ -209,7 +214,7 @@ export class DemocracyRoom extends DurableObject {
   }
 
   metaGet(key) {
-    const row = this.sql.exec('SELECT value FROM room_meta WHERE key = ? LIMIT 1', key).one();
+    const row = firstRow(this.sql.exec('SELECT value FROM room_meta WHERE key = ? LIMIT 1', key));
     return row?.value ?? null;
   }
 
@@ -218,7 +223,7 @@ export class DemocracyRoom extends DurableObject {
   }
 
   getStateRecord() {
-    const row = this.sql.exec('SELECT state_json,state_hash,state_version,updated_at FROM room_state WHERE id=1 LIMIT 1').one();
+    const row = firstRow(this.sql.exec('SELECT state_json,state_hash,state_version,updated_at FROM room_state WHERE id=1 LIMIT 1'));
     if (!row) return null;
     return { state: safeParse(row.state_json), stateHash: row.state_hash, stateVersion: Number(row.state_version), updatedAt: Number(row.updated_at) };
   }
@@ -233,14 +238,14 @@ export class DemocracyRoom extends DurableObject {
   }
 
   latestCommit() {
-    const row = this.sql.exec('SELECT sequence,commit_hash FROM commits ORDER BY sequence DESC LIMIT 1').one();
+    const row = firstRow(this.sql.exec('SELECT sequence,commit_hash FROM commits ORDER BY sequence DESC LIMIT 1'));
     return row ? { sequence: Number(row.sequence), commitHash: row.commit_hash } : { sequence: 0, commitHash: null };
   }
 
   commitHashAt(sequence) {
     const n = Number(sequence || 0);
     if (n === 0) return null;
-    const row = this.sql.exec('SELECT commit_hash FROM commits WHERE sequence=? LIMIT 1', n).one();
+    const row = firstRow(this.sql.exec('SELECT commit_hash FROM commits WHERE sequence=? LIMIT 1', n));
     return row?.commit_hash || null;
   }
 
@@ -279,8 +284,8 @@ export class DemocracyRoom extends DurableObject {
 
   loadPersistentSnapshot(sequence = null) {
     const row = sequence == null
-      ? this.sql.exec('SELECT sequence,state_version,state_hash,commit_hash,created_at,chunk_count,byte_length FROM snapshots ORDER BY sequence DESC LIMIT 1').one()
-      : this.sql.exec('SELECT sequence,state_version,state_hash,commit_hash,created_at,chunk_count,byte_length FROM snapshots WHERE sequence=? LIMIT 1', Number(sequence)).one();
+      ? firstRow(this.sql.exec('SELECT sequence,state_version,state_hash,commit_hash,created_at,chunk_count,byte_length FROM snapshots ORDER BY sequence DESC LIMIT 1'))
+      : firstRow(this.sql.exec('SELECT sequence,state_version,state_hash,commit_hash,created_at,chunk_count,byte_length FROM snapshots WHERE sequence=? LIMIT 1', Number(sequence)));
     if (!row) return null;
     const chunks = [...this.sql.exec('SELECT chunk_text FROM snapshot_chunks WHERE snapshot_sequence=? ORDER BY chunk_index ASC', Number(row.sequence))].map(item => item.chunk_text);
     if (chunks.length !== Number(row.chunk_count)) throw new Error('Persistent snapshot is incomplete.');
@@ -514,7 +519,7 @@ export class DemocracyRoom extends DurableObject {
   }
 
   sendExistingJoinStatus(ws, fingerprint) {
-    const row = this.sql.exec('SELECT request_id,display_name,requested_at,status,player_id FROM join_requests WHERE fingerprint=? ORDER BY requested_at DESC LIMIT 1', fingerprint).one();
+    const row = firstRow(this.sql.exec('SELECT request_id,display_name,requested_at,status,player_id FROM join_requests WHERE fingerprint=? ORDER BY requested_at DESC LIMIT 1', fingerprint));
     if (!row) return;
     ws.send(JSON.stringify(protocolEnvelope(CLOUD_MESSAGE.JOIN_REQUEST, {
       requestId: row.request_id,
@@ -530,7 +535,7 @@ export class DemocracyRoom extends DurableObject {
     const displayName = String(payload.displayName || '').trim();
     if (!displayName) throw new Error('Enter a display name to request entry.');
     if (displayName.length > 50) throw new Error('Player names must be 50 characters or fewer.');
-    const existing = this.sql.exec("SELECT request_id,display_name,requested_at,status FROM join_requests WHERE fingerprint=? AND status='pending' ORDER BY requested_at DESC LIMIT 1", attachment.fingerprint).one();
+    const existing = firstRow(this.sql.exec("SELECT request_id,display_name,requested_at,status FROM join_requests WHERE fingerprint=? AND status='pending' ORDER BY requested_at DESC LIMIT 1", attachment.fingerprint));
     const requestId = existing?.request_id || crypto.randomUUID();
     const requestedAt = existing ? Number(existing.requested_at) : Date.now();
     if (existing) {
@@ -577,7 +582,7 @@ export class DemocracyRoom extends DurableObject {
     const valid = await verifyCloudSignedPayload(player.identityPublicKey, signedPayload, packet.signature);
     if (!valid) throw new Error('Join decision signature is invalid.');
     this.assertNonceUnused(attachment.fingerprint, signedPayload.nonce);
-    const request = this.sql.exec("SELECT request_id,fingerprint,status FROM join_requests WHERE request_id=? LIMIT 1", signedPayload.requestId).one();
+    const request = firstRow(this.sql.exec("SELECT request_id,fingerprint,status FROM join_requests WHERE request_id=? LIMIT 1", signedPayload.requestId));
     if (!request || request.status !== 'pending') throw new Error('That join request is no longer pending.');
     this.markNonceUsed(attachment.fingerprint, signedPayload.nonce);
     this.sql.exec("UPDATE join_requests SET status='rejected',decided_at=?,decided_by=? WHERE request_id=?", Date.now(), attachment.playerId, signedPayload.requestId);
@@ -588,7 +593,7 @@ export class DemocracyRoom extends DurableObject {
   assertNonceUnused(fingerprint, nonce) {
     if (!nonce || String(nonce).length < 8) throw new Error('Action nonce is missing or too short.');
     const key = `${fingerprint}:${nonce}`;
-    if (this.sql.exec('SELECT nonce_key FROM used_nonces WHERE nonce_key=? LIMIT 1', key).one()) throw new Error('This signed request nonce has already been used.');
+    if (firstRow(this.sql.exec('SELECT nonce_key FROM used_nonces WHERE nonce_key=? LIMIT 1', key))) throw new Error('This signed request nonce has already been used.');
   }
 
   markNonceUsed(fingerprint, nonce) {
@@ -597,7 +602,7 @@ export class DemocracyRoom extends DurableObject {
 
   validateJoinApprovalAction(action) {
     if (action?.type !== 'PLAYER_ADDED' || !action.joinRequestId) return null;
-    const request = this.sql.exec("SELECT request_id,fingerprint,public_jwk,display_name,status FROM join_requests WHERE request_id=? LIMIT 1", action.joinRequestId).one();
+    const request = firstRow(this.sql.exec("SELECT request_id,fingerprint,public_jwk,display_name,status FROM join_requests WHERE request_id=? LIMIT 1", action.joinRequestId));
     if (!request || request.status !== 'pending') throw new Error('The referenced join request is no longer pending.');
     const expected = {
       type: 'PLAYER_ADDED',

@@ -113,6 +113,25 @@ export function setCloudSettings(next = {}) {
 }
 
 
+
+async function preflightCloudRoom(apiBase, roomCode) {
+  const response = await fetch(`${apiBase}/rooms/${encodeURIComponent(roomCode)}`, {
+    method: 'GET',
+    cache: 'no-store',
+    headers: { accept: 'application/json' }
+  });
+  const data = await response.json().catch(() => ({}));
+  if (response.ok) return data;
+  const error = new Error(
+    response.status === 404
+      ? `Cloud room ${roomCode} does not exist yet. Publish/create this game in Cloud Multiplayer before connecting to it.`
+      : (data?.message || data?.error || `Cloud room preflight failed (${response.status}).`)
+  );
+  error.permanent = response.status === 404 || response.status === 400 || response.status === 403;
+  error.status = response.status;
+  throw error;
+}
+
 function loadCloudSession() {
   try { return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); } catch { return null; }
 }
@@ -132,7 +151,13 @@ function scheduleReconnect({ immediate = false } = {}) {
     reconnectTimer = null;
     reconnectAttempt += 1;
     try { await connectCloudRoom(status.roomCode, { reconnect: true }); }
-    catch { scheduleReconnect(); }
+    catch (error) {
+      if (error?.permanent) {
+        setStatus({ connection: 'error', lastError: error.message, autoReconnect: false, nextReconnectAt: null });
+        return;
+      }
+      scheduleReconnect();
+    }
   }, delay);
 }
 
@@ -171,7 +196,14 @@ export async function restoreCloudSession() {
   if (!saved?.roomCode || !getCloudSettings().enabled) return getCloudStatus();
   if (saved.apiBase) setCloudSettings({ ...getCloudSettings(), apiBase: saved.apiBase, enabled: true });
   try { return await connectCloudRoom(saved.roomCode, { reconnect: true }); }
-  catch { scheduleReconnect(); return getCloudStatus(); }
+  catch (error) {
+    if (error?.permanent) {
+      setStatus({ connection: 'error', lastError: error.message, autoReconnect: false, nextReconnectAt: null });
+      return getCloudStatus();
+    }
+    scheduleReconnect();
+    return getCloudStatus();
+  }
 }
 
 
@@ -353,6 +385,7 @@ export async function connectCloudRoom(roomCode, options = {}) {
   }
   intentionalClose = false;
   installLifecycleRecovery();
+  await preflightCloudRoom(settings.apiBase, code);
   saveCloudSession(code, settings.apiBase);
   setStatus({
     connection: 'connecting', roomCode: code, connectionId: null, authenticated: false, authRole: null,
