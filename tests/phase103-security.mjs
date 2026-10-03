@@ -7,16 +7,20 @@ const permissions = read('js/permissions.js');
 const app = read('js/app.js');
 const config = read('js/config.js');
 
-assert.match(config, /APP_VERSION = '1\.0\.3'/);
+assert.match(config, /APP_VERSION = '1\.0\.[34]'/);
 // Critical #1: authority claims must be signed, exactly-next epoch, deterministic winner, and rejected while owner is connected.
 assert.match(network, /verifySignedControl\(packet, 'authority-claim'/);
 assert.match(network, /payload\.authorityEpoch !== authorityEpoch \+ 1/);
 assert.match(network, /winner\.playerId !== payload\.playerId/);
 assert.match(network, /Authority claim rejected while the current owner is still connected/);
-// Initial trust: first-time joins require an out-of-band/invite owner fingerprint.
-assert.match(network, /First-time joins require the Lobby Owner fingerprint/);
+// Initial trust: invite links pin the owner; room-code discovery is self-signed and requires explicit user confirmation.
 assert.match(network, /normalizeOwnerFingerprint/);
+assert.match(network, /verifyOwnerOffer/);
+assert.match(network, /awaiting-owner-trust/);
+assert.match(network, /expectedOwnerFingerprint = discoveredOwner\.fingerprint/);
+assert.match(network, /multiple different Lobby Owner identities answered this room code/);
 assert.match(app, /joinOwnerFingerprint/);
+assert.match(app, /trust-discovered-owner/);
 // Critical #2: owner self-actions and peer actions use the same signed deterministic transition path.
 assert.match(network, /role === 'owner'[\s\S]*createAndApplyOrdinaryTransition\(signedPayload/);
 assert.match(network, /simulateDeterministicAction/);

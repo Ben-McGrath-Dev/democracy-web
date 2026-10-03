@@ -1,3 +1,15 @@
+# Changelog
+
+## 1.0.4 — Secure first-join reliability
+
+- Replaced the two-message initial join acknowledgement/checkpoint with one atomic signed bootstrap packet, removing a first-join race.
+- Full invite links still pin the Lobby Owner fingerprint automatically.
+- Room-code-only joins now discover a self-signed owner fingerprint and require explicit human verification before pinning it.
+- Detects conflicting owner identities during discovery and refuses to auto-trust either.
+- Joining no longer inherits authority metadata from an unrelated local save.
+- Initial joins no longer trigger Lobby Owner migration while bootstrap is incomplete.
+- Extended/restarted join retries when the verified owner appears late.
+
 ## 1.0.3 hotfix — Startup regression fix
 
 - Restored the missing `formatDateTime` utility export required by `app.js`.

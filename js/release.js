@@ -5,7 +5,7 @@ import { auditState, offlineReadiness } from './diagnostics.js';
 
 export const RELEASE_CHANNEL = 'stable';
 export const RELEASE_DATE = '2026-10-03';
-export const RELEASE_NAME = 'Democracy Web 1.0.3';
+export const RELEASE_NAME = 'Democracy Web 1.0.4';
 
 export const RELEASE_HIGHLIGHTS = [
   'Offline and P2P multiplayer Democracy games',
@@ -24,7 +24,7 @@ export const KNOWN_LIMITATIONS = [
   'Plain HTTP private-LAN testing runs in explicitly insecure LAN Test Mode; production games should use HTTPS.',
   'The browser holding a sealed ballot-box private key can technically decrypt before close; threshold/mix-net secrecy remains future work.',
   'A sealed ballot should have an exported recovery package if the ballot-box holder may disappear before close.',
-  'Public lobby discovery is intentionally not included; games are invite-based.',
+  'Room-code owner discovery is available, but users must verify the displayed owner code out-of-band before first trust; full invite links pin automatically.',
   'Real-world maximum lobby size depends on browsers, devices and network topology; the built-in stress test is synthetic.'
 ];
 

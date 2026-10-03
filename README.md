@@ -6,10 +6,10 @@ The website is intended to be the official mechanical/record-keeping layer while
 
 ## Current Status
 
-**Version:** `1.0.3`  
-**Milestone:** Stable security hardening
+**Version:** `1.0.4`  
+**Milestone:** Stable secure-join reliability
 
-The original Phase 0–33 roadmap is complete. Version 1.0.3 hardens multiplayer authority so online political state changes are signed deterministic transitions independently verified by every connected peer.
+The original Phase 0–33 roadmap is complete. Version 1.0.4 keeps the 1.0.3 authority hardening and improves secure first-time connectivity with atomic signed bootstrap plus human-verifiable owner discovery for room-code joins.
 
 Implemented systems include:
 
@@ -210,7 +210,7 @@ For local multi-device testing, run `start-lan.bat`. Use the printed `http://192
 
 ## Version 1.0
 
-Democracy Web has reached its stable release line (`1.0.3`). The original Phase 0–33 development roadmap is complete.
+Democracy Web has reached its stable release line (`1.0.4`). The original Phase 0–33 development roadmap is complete.
 
 Version 1.0 includes the complete offline political simulation, invite-based P2P multiplayer, persistence/recovery, cryptographic identities, sealed ballots, mobile/PWA/accessibility work, automated rule testing, stress tooling, production hardening and GitHub Pages deployment support.
 

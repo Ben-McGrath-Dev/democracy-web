@@ -45,6 +45,8 @@ let lastOwnerSeenAt = null;
 let awaitingInitialState = false;
 let expectedOwnerFingerprint = null;
 let pendingJoinAck = null;
+let discoveredOwner = null;
+let discoveredOwnerConflict = false;
 const seenActionNonces = new Map();
 const seenControlNonces = new Map();
 const peerActionWindows = new Map();
@@ -191,6 +193,8 @@ function cleanup({ forgetSession = false } = {}) {
   awaitingInitialState = false;
   expectedOwnerFingerprint = null;
   pendingJoinAck = null;
+  discoveredOwner = null;
+  discoveredOwnerConflict = false;
   connectionState = 'offline';
   reconnectAttempt = 0;
   authorityEpoch = 0;
@@ -306,11 +310,35 @@ async function broadcastRoster() {
   actions.roster.send(packet).catch?.(() => {});
 }
 
+
+async function sendOwnerOffer(target) {
+  if (role !== 'owner' || !localPlayerId || !actions.ownerOffer) return;
+  const identity = await ensureIdentity();
+  const payload = {
+    kind: 'owner-offer', roomCode, playerId: localPlayerId,
+    displayName: getState()?.players?.[localPlayerId]?.displayName || displayName || 'Lobby Owner',
+    authorityEpoch, timestamp: Date.now(), nonce: crypto.randomUUID(), fingerprint: identity.fingerprint
+  };
+  const proof = await signPayload(payload);
+  await actions.ownerOffer.send({ payload, signature: proof.signature, publicJwk: proof.publicJwk }, { target });
+}
+
+async function verifyOwnerOffer(packet) {
+  const payload = packet?.payload;
+  const publicJwk = packet?.publicJwk;
+  if (!payload || payload.kind !== 'owner-offer' || payload.roomCode !== roomCode) throw new Error('Invalid owner discovery response.');
+  if (Math.abs(Date.now() - Number(payload.timestamp || 0)) > CONTROL_MAX_AGE_MS) throw new Error('Owner discovery response expired.');
+  const fingerprint = await publicKeyFingerprint(publicJwk);
+  if (fingerprint !== payload.fingerprint) throw new Error('Owner discovery fingerprint mismatch.');
+  if (!(await verifySignedPayload(publicJwk, payload, packet.signature))) throw new Error('Owner discovery signature is invalid.');
+  return { peerId: null, playerId: payload.playerId, displayName: payload.displayName || 'Lobby Owner', authorityEpoch: payload.authorityEpoch ?? 0, fingerprint, publicJwk };
+}
+
 function startJoinRetry() {
   if (reconnectTimer) clearInterval(reconnectTimer);
   reconnectAttempt = 0;
   const tryJoin = async () => {
-    if (role !== 'peer' || !waitingJoin || !actions.join) return;
+    if (role !== 'peer' || !waitingJoin || !actions.join || !expectedOwnerFingerprint) return;
     reconnectAttempt++;
     connectionState = reconnectAttempt > 1 ? 'reconnecting' : 'connecting';
     emit();
@@ -327,10 +355,10 @@ function startJoinRetry() {
       lastError = error.message;
       emit();
     }
-    if (reconnectAttempt >= 12) {
+    if (reconnectAttempt >= 30) {
       clearInterval(reconnectTimer);
       reconnectTimer = null;
-      lastError = 'Could not reach a Lobby Owner yet. If the old owner left, migration may still be in progress.';
+      lastError = 'Could not reach the verified Lobby Owner yet. Check that the host is online, the room code is correct, and TURN is configured if the network blocks direct WebRTC.';
       emit();
     }
   };
@@ -582,7 +610,8 @@ function setupRoom(r, selfId) {
   localPeerId = selfId;
   actions.presence = room.makeAction('dw-presence-v2');
   actions.join = room.makeAction('dw-join-v2');
-  actions.joinAck = room.makeAction('dw-join-ack-v2');
+  actions.joinAck = room.makeAction('dw-join-ack-v3');
+  actions.ownerOffer = room.makeAction('dw-owner-offer-v1');
   actions.state = room.makeAction('dw-state-v2');
   actions.game = room.makeAction('dw-game-action-v2');
   actions.transition = room.makeAction('dw-transition-v2');
@@ -598,6 +627,8 @@ function setupRoom(r, selfId) {
     syncPeerInfo(peerId, { connectedAt: Date.now() });
     emit();
     broadcastPresence(peerId);
+    if (role === 'owner') sendOwnerOffer(peerId).catch(() => {});
+    if (role === 'peer' && waitingJoin && expectedOwnerFingerprint) startJoinRetry();
   };
 
   room.onPeerLeave = peerId => {
@@ -607,7 +638,7 @@ function setupRoom(r, selfId) {
     peerInfo.delete(peerId);
     emit();
     if (role === 'owner') broadcastRoster();
-    if (role === 'peer' && wasOwner) beginMigration();
+    if (role === 'peer' && wasOwner && !waitingJoin && !awaitingInitialState && connectionState === 'connected') beginMigration();
   };
 
   actions.presence.onMessage = async (packet, { peerId }) => {
@@ -705,6 +736,38 @@ function setupRoom(r, selfId) {
     }
   };
 
+
+  actions.ownerOffer.onMessage = async (packet, { peerId }) => {
+    if (role !== 'peer') return;
+    try {
+      const candidate = await verifyOwnerOffer(packet);
+      candidate.peerId = peerId;
+      if (expectedOwnerFingerprint) {
+        if (candidate.fingerprint !== expectedOwnerFingerprint) return;
+        discoveredOwner = candidate;
+        ownerPeerId = peerId;
+        if (waitingJoin) startJoinRetry();
+        emit();
+        return;
+      }
+      if (discoveredOwner && discoveredOwner.fingerprint !== candidate.fingerprint) {
+        discoveredOwnerConflict = true;
+        lastError = 'SECURITY: multiple different Lobby Owner identities answered this room code. Do not trust either until you verify with the host.';
+        connectionState = 'awaiting-owner-trust';
+        emit();
+        return;
+      }
+      discoveredOwner = candidate;
+      ownerPeerId = peerId;
+      connectionState = 'awaiting-owner-trust';
+      lastError = null;
+      emit();
+    } catch (error) {
+      lastError = `Owner discovery rejected: ${error.message}`;
+      emit();
+    }
+  };
+
   actions.join.onMessage = async (data, { peerId }) => {
     if (role !== 'owner') return;
     try {
@@ -744,9 +807,16 @@ function setupRoom(r, selfId) {
         timestamp: Date.now(), nonce: crypto.randomUUID(), reconnected
       };
       const ackProof = await signPayload(ackPayload);
-      await actions.joinAck.send({ ok: true, ackPayload, signature: ackProof.signature, identityFingerprint: ackProof.fingerprint }, { target: peerId });
       const checkpoint = await signedCheckpoint('initial-join');
-      await actions.state.send(checkpoint, { target: peerId });
+      await actions.joinAck.send({
+        ok: true,
+        bootstrap: {
+          ackPayload,
+          ackSignature: ackProof.signature,
+          ackIdentityFingerprint: ackProof.fingerprint,
+          checkpoint
+        }
+      }, { target: peerId });
       broadcastRoster();
       emit();
     } catch (error) {
@@ -759,29 +829,48 @@ function setupRoom(r, selfId) {
     if (!data?.ok) {
       if (reconnectTimer) clearInterval(reconnectTimer);
       reconnectTimer = null;
-      waitingJoin = false;
       lastError = data?.error || 'Join rejected';
       connectionState = 'disconnected';
       emit();
       return;
     }
     try {
-      const p = data.ackPayload;
-      if (!p || p.kind !== 'join-ack' || p.roomCode !== roomCode || Math.abs(Date.now() - Number(p.timestamp || 0)) > CONTROL_MAX_AGE_MS) throw new Error('Invalid join acknowledgement.');
-      // The checkpoint immediately following this ack supplies the owner's canonical
-      // public key. Keep the acknowledgement pending until its signature can be verified
-      // against that key; do not treat its player/epoch claims as trusted yet.
+      const bootstrap = data.bootstrap;
+      const checkpoint = bootstrap?.checkpoint;
+      const state = await verifyCheckpoint(checkpoint, peerId, { initial: true });
+      const owner = state.players?.[checkpoint.payload.playerId];
+      if (!owner || owner.identityFingerprint !== checkpoint.identityFingerprint) throw new Error('Initial owner identity is inconsistent.');
+      const ackPayload = bootstrap?.ackPayload;
+      if (!ackPayload || ackPayload.kind !== 'join-ack' || ackPayload.roomCode !== roomCode) throw new Error('Missing signed join acknowledgement.');
+      if (bootstrap.ackIdentityFingerprint !== owner.identityFingerprint) throw new Error('Join acknowledgement owner fingerprint mismatch.');
+      if (!(await verifySignedPayload(owner.identityPublicKey, ackPayload, bootstrap.ackSignature))) throw new Error('Join acknowledgement signature is invalid.');
+      if (ackPayload.playerId !== checkpoint.payload.playerId || ackPayload.ownerPlayerId !== checkpoint.payload.playerId) throw new Error('Join acknowledgement owner does not match checkpoint owner.');
+      if (ackPayload.authorityEpoch !== checkpoint.payload.authorityEpoch || ackPayload.stateVersion !== checkpoint.payload.stateVersion) throw new Error('Join acknowledgement does not match checkpoint authority/state.');
+      const localIdentity = await ensureIdentity();
+      const joined = state.players?.[ackPayload.joinedPlayerId];
+      if (!joined || joined.identityFingerprint !== localIdentity.fingerprint) throw new Error('Join acknowledgement does not assign this browser to its cryptographic player identity.');
+      loadState(state);
+      localPlayerId = ackPayload.joinedPlayerId;
       ownerPeerId = peerId;
-      pendingJoinAck = structuredClone(data);
-      awaitingInitialState = true;
+      setMeta({ authorityEpoch: checkpoint.payload.authorityEpoch, ownerPlayerId: checkpoint.payload.playerId });
+      authorityEpoch = checkpoint.payload.authorityEpoch;
+      pendingJoinAck = null;
+      awaitingInitialState = false;
       waitingJoin = false;
       if (reconnectTimer) clearInterval(reconnectTimer);
       reconnectTimer = null;
-      connectionState = 'connecting';
+      connectionState = 'connected';
+      expectedOwnerFingerprint = owner.identityFingerprint;
+      discoveredOwner = null;
+      discoveredOwnerConflict = false;
+      lastError = null;
+      saveSession();
+      broadcastPresence();
+      window.dispatchEvent(new CustomEvent('network:joined', { detail: { playerId: localPlayerId } }));
       emit();
     } catch (error) {
-      lastError = error.message;
-      connectionState = 'disconnected';
+      lastError = `Initial join rejected: ${error.message}`;
+      connectionState = 'security-error';
       emit();
     }
   };
@@ -802,39 +891,10 @@ function setupRoom(r, selfId) {
     actions.result.send({ ok: false, error: 'Full-state overwrite is disabled after joining; secure resync uses signed transition replay.' }, { target: peerId }).catch?.(() => {});
   };
 
-  actions.state.onMessage = async (packet, { peerId }) => {
-    if (role === 'owner' || !awaitingInitialState || peerId !== ownerPeerId) return;
-    try {
-      const state = await verifyCheckpoint(packet, peerId, { initial: true });
-      loadState(state);
-      const owner = state.players?.[packet.payload.playerId];
-      if (!owner || owner.identityFingerprint !== packet.identityFingerprint) throw new Error('Initial owner identity is inconsistent.');
-      const ack = pendingJoinAck;
-      const ackPayload = ack?.ackPayload;
-      if (!ackPayload || ackPayload.kind !== 'join-ack' || ackPayload.roomCode !== roomCode) throw new Error('Missing signed join acknowledgement.');
-      if (ack.identityFingerprint !== owner.identityFingerprint) throw new Error('Join acknowledgement owner fingerprint mismatch.');
-      if (!(await verifySignedPayload(owner.identityPublicKey, ackPayload, ack.signature))) throw new Error('Join acknowledgement signature is invalid.');
-      if (ackPayload.playerId !== packet.payload.playerId || ackPayload.ownerPlayerId !== packet.payload.playerId) throw new Error('Join acknowledgement owner does not match checkpoint owner.');
-      if (ackPayload.authorityEpoch !== packet.payload.authorityEpoch || ackPayload.stateVersion !== packet.payload.stateVersion) throw new Error('Join acknowledgement does not match checkpoint authority/state.');
-      const localIdentity = await ensureIdentity();
-      const joined = state.players?.[ackPayload.joinedPlayerId];
-      if (!joined || joined.identityFingerprint !== localIdentity.fingerprint) throw new Error('Join acknowledgement does not assign this browser to its cryptographic player identity.');
-      localPlayerId = ackPayload.joinedPlayerId;
-      setMeta({ authorityEpoch: packet.payload.authorityEpoch, ownerPlayerId: packet.payload.playerId });
-      authorityEpoch = packet.payload.authorityEpoch;
-      pendingJoinAck = null;
-      awaitingInitialState = false;
-      connectionState = 'connected';
-      expectedOwnerFingerprint = owner.identityFingerprint;
-      saveSession();
-      broadcastPresence();
-      window.dispatchEvent(new CustomEvent('network:joined', { detail: { playerId: localPlayerId } }));
-      emit();
-    } catch (error) {
-      lastError = `Initial state rejected: ${error.message}`;
-      connectionState = 'security-error';
-      emit();
-    }
+  actions.state.onMessage = async (_packet, { peerId }) => {
+    // Initial joins use one atomic signed bootstrap packet on dw-join-ack-v3.
+    // Ignore unsolicited full-state packets so a stale/hostile peer cannot race bootstrap.
+    if (role === 'peer' && peerId === ownerPeerId) return;
   };
 
   actions.transition.onMessage = async (packet, { peerId }) => {
@@ -944,21 +1004,20 @@ export async function joinOnlineLobby(code, name, { forceNewIdentity = false, ow
   const manualFingerprint = normalizeOwnerFingerprint(ownerFingerprint);
   const rememberedFingerprint = normalizeOwnerFingerprint(prior?.ownerFingerprint || '');
   expectedOwnerFingerprint = inviteFingerprint || manualFingerprint || rememberedFingerprint || null;
-  if (!expectedOwnerFingerprint) throw new Error('First-time joins require the Lobby Owner fingerprint. Use the full invite link or paste the 64-character owner fingerprint supplied by the host.');
   const chosenName = (name?.trim() || prior?.displayName || '').trim();
   if (!chosenName) throw new Error('Enter your display name.');
   if (forceNewIdentity) await rotateIdentity();
   const mod = await trystero();
   role = 'peer';
-  connectionState = prior ? 'reconnecting' : 'connecting';
+  connectionState = expectedOwnerFingerprint ? (prior ? 'reconnecting' : 'connecting') : 'discovering-owner';
   roomCode = clean;
   localPeerId = mod.selfId;
   waitingJoin = true;
   displayName = chosenName;
   localPlayerId = prior?.playerId || null;
-  authorityEpoch = getState()?.network?.authorityEpoch ?? 0;
+  authorityEpoch = 0; // Never inherit authority from an unrelated/stale local save while joining.
   setupRoom(mod.joinRoom(trysteroRoomConfig(), roomCode, { onJoinError: e => { lastError = String(e?.message || e); connectionState = 'disconnected'; emit(); } }), mod.selfId);
-  startJoinRetry();
+  if (expectedOwnerFingerprint) startJoinRetry();
   emit();
   return getNetworkStatus();
 }
@@ -969,6 +1028,20 @@ export async function resumeOnlineSession(code) {
   await joinOnlineLobby(code, prior.displayName || 'Player');
   return true;
 }
+
+export async function trustDiscoveredOwner() {
+  if (role !== 'peer' || !discoveredOwner) throw new Error('No Lobby Owner identity has been discovered yet.');
+  if (discoveredOwnerConflict) throw new Error('Conflicting owner identities were discovered. Verify the full fingerprint with the host and reconnect using it explicitly.');
+  expectedOwnerFingerprint = discoveredOwner.fingerprint;
+  ownerPeerId = discoveredOwner.peerId;
+  connectionState = 'connecting';
+  waitingJoin = true;
+  lastError = null;
+  startJoinRetry();
+  emit();
+  return expectedOwnerFingerprint;
+}
+
 export function leaveOnlineLobby({ forgetIdentity = false } = {}) { cleanup({ forgetSession: forgetIdentity }); }
 export function subscribeNetwork(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 export function getLocalPlayerId() { return localPlayerId; }
@@ -977,7 +1050,10 @@ export function isOnlineOwner() { return role === 'owner'; }
 export function getNetworkStatus() {
   const turn = readTurnSettings();
   return {
-    role, connectionState, roomCode, ownerPeerId, ownerPlayerId: networkMeta().ownerPlayerId ?? null,
+    role, connectionState, roomCode, ownerPeerId,
+    ownerPlayerId: connectionState === 'connected' ? (networkMeta().ownerPlayerId ?? null) : (discoveredOwner?.playerId ?? null),
+    discoveredOwner: discoveredOwner ? { playerId: discoveredOwner.playerId, displayName: discoveredOwner.displayName, fingerprint: discoveredOwner.fingerprint, peerId: discoveredOwner.peerId } : null,
+    discoveredOwnerConflict,
     localPeerId, localPlayerId, connectedPeers: [...peers.keys()], peerPlayers: Object.fromEntries(peerPlayers),
     peerInfo: Object.fromEntries(peerInfo), authorityEpoch, backupOwnerPlayerId: networkMeta().backupOwnerPlayerId ?? null,
     reconnectAttempt, lastOwnerSeenAt, lastError,
