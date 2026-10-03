@@ -1,0 +1,68 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Package manager caches
+.npm/
+.pnpm-store/
+.yarn/cache/
+.yarn/unplugged/
+
+# Cloudflare Wrangler
+.wrangler/
+.dev.vars
+.dev.vars.*
+wrangler.toml.local
+wrangler.jsonc.local
+
+# Cloudflare local state / Durable Object data
+.wrangler/state/
+.wrangler/tmp/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Build / coverage output
+dist/
+build/
+coverage/
+.tmp/
+temp/
+
+# Local logs
+*.log
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python local server / tooling
+__pycache__/
+*.pyc
+
+# Local certificates / HTTPS development
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Democracy Web local development files
+*.democracy-id
+*.dbr
+
+# Optional local test/output artifacts
+test-results/
+playwright-report/

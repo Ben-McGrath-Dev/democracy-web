@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.1 — Cloud backend persistence hotfix
+## 1.1.2 — Cloud backend persistence hotfix
 
 - Cloud Worker URL is now stored in a dedicated browser-local cache key as well as the versioned Cloud settings record.
 - Backend URL automatically persists on field change or Enter; saving no longer rerenders the Multiplayer page.

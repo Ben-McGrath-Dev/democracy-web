@@ -109,9 +109,14 @@ export default {
       target.pathname = ws ? '/ws' : '/info';
       target.searchParams.set('code', roomCode);
       const proxied = await stub.fetch(new Request(target, request));
+      // WebSocket upgrade Responses contain a Cloudflare-specific `webSocket` object.
+      // Return them untouched; reconstructing the Response can break the 101 upgrade
+      // in production even when the Durable Object accepted the socket correctly.
+      if (ws) return proxied;
+
       const headers = new Headers(proxied.headers);
       for (const [key, value] of Object.entries(cors)) headers.set(key, value);
-      return new Response(proxied.body, { status: proxied.status, statusText: proxied.statusText, headers, webSocket: proxied.webSocket });
+      return new Response(proxied.body, { status: proxied.status, statusText: proxied.statusText, headers });
     }
 
     return json({ error: 'not_found' }, { status: 404, headers: cors });

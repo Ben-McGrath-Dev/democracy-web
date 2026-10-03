@@ -1,4 +1,8 @@
-# Democracy Web 1.1.1 — Cloud backend persistence hotfix
+# Democracy Web 1.1.2
+
+Production hotfix for Cloudflare WebSocket upgrades. Durable Object WebSocket responses are now forwarded unchanged through the top-level Worker.
+
+# Democracy Web 1.1.2 — Cloud backend persistence hotfix
 
 The configured Cloudflare Worker URL is now saved persistently in the browser and restored on reload. The production fallback for this deployment is `https://democracy-web-cloud.ben-mcgrath-dev.workers.dev`; local frontend development still falls back to `http://localhost:8787` when no browser override has been saved.
 
