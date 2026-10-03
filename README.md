@@ -1,49 +1,43 @@
-# Democracy Web
+# Democracy Web 1.1
 
-A browser-based multiplayer political simulation game for elections, parties, Parliament, governments, laws, constitutional amendments, committees, cases and political procedure.
+Democracy Web is a browser political simulation for running elections, Parliament, governments, laws, constitutional procedure, committees, cases and referendums.
 
-The website is intended to be the official mechanical/record-keeping layer while discussion, campaigns and coalition negotiations can remain in WhatsApp, Discord or another chat platform.
+Version **1.1.0** completes the multiplayer migration from WebRTC/P2P to **Cloudflare Workers + SQLite-backed Durable Objects + WebSockets**.
 
-## Current Status
+## Multiplayer architecture
 
-**Version:** `1.0.4`  
-**Milestone:** Stable secure-join reliability
-
-The original Phase 0–33 roadmap is complete. Version 1.0.4 keeps the 1.0.3 authority hardening and improves secure first-time connectivity with atomic signed bootstrap plus human-verifiable owner discovery for room-code joins.
-
-Implemented systems include:
-
-- local game creation and canonical action/state architecture
-- players, parties, Parliament, government, laws and Constitution
-- elections, committees, cases, juries and punishment
-- IndexedDB autosave, verified snapshots and save export/import
-- WebRTC P2P multiplayer with signed, peer-verifiable Lobby Owner sequencing
-- reconnect and automatic Lobby Owner migration
-- signed authority epochs and deterministic state-transition replication
-- persistent ECDSA player identities and signed peer actions
-- SHA-256 chained official event history
-- sealed RSA-OAEP/AES-GCM secret ballots
-- signed transition replay for secure resynchronisation
-- migration recovery-state rebroadcast
-- peer/state/authority diagnostics
-- verified snapshot restore with pre-restore safety snapshot
-- password-protected sealed-ballot key recovery packages
-- full Markdown rulebook and save-specific mutable Constitution
-
-## Run Locally
-
-Do not open `index.html` directly with `file://` because browser security rules block JavaScript modules and data loading.
-
-On Windows, double-click:
+The browser keeps each player's private signing key. Cloudflare provides transport, ordering, canonical multiplayer time and durable recovery, but player actions remain cryptographically signed and independently replayed/verified by every client.
 
 ```text
-start.bat
+Browser
+  -> signed action
+Cloudflare Durable Object
+  -> verify identity / permissions / state version
+  -> order + persist commit
+  -> broadcast commit
+Browser
+  -> verify signature / authorization / commit chain / state hash
 ```
 
-Or run:
+There is no production dependency on Trystero, Nostr signaling, WebRTC ICE, STUN, TURN or Lobby Owner peer migration.
+
+## Offline mode
+
+Local/offline Democracies still work without Cloudflare. IndexedDB autosave, snapshots, `.democracy` export/import and the full political engine remain available locally.
+
+## Local development
+
+Serve the frontend over HTTP:
 
 ```bash
 python -m http.server 8000
+```
+
+Install Worker tooling and start the Cloud backend:
+
+```bash
+npm install
+npm run cloud:dev
 ```
 
 Then open:
@@ -52,177 +46,118 @@ Then open:
 http://localhost:8000
 ```
 
-## Test & Stress Lab
-
-The **Test & Stress Lab** began with the Phase 12 offline-alpha tools and is expanded in Phases 27–28.
-
-It can:
-
-- generate enough synthetic players to reach 30 active players;
-- create three test political parties;
-- distribute independent test players across parties;
-- run a state-integrity audit;
-- show which major offline systems have been exercised in the current save;
-- run 2,000 randomized rule-property scenarios in the browser;
-- measure current save size and synthetic full-state P2P fan-out at 2/10/25/50/100-player scales;
-- benchmark proportional/ranked election counting and integrity-audit cost.
-
-The test-data tools modify the current save. The property/stress tests are read-only.
-
-## Automated Phase 12 Smoke Test
-
-From the project directory:
-
-```bash
-node tests/phase12-smoke.mjs
-```
-
-The scenario creates 30 players and exercises parties, a general election, Parliament, government formation, Host election, all four committee elections, an ordinary law case, jury review, PPC punishment, a constitutional amendment, legislation and Host removal. It finishes with a state-integrity audit.
-
-## Architecture
-
-Political systems are deliberately kept separate from networking:
+The default local Cloud backend is:
 
 ```text
-UI
- ↓
-Actions
- ↓
-Game Rules / Validation
- ↓
-Canonical State
- ↓
-Persistence
- ↓
-Networking Adapter
+http://localhost:8787
 ```
 
-This allows the same political engine to operate locally now and over P2P networking later.
+## Production deployment
 
-## Full Rulebook
+### Frontend
 
-`full-rules.md` contains the permanent rule/procedure reference.
+The static frontend can continue to be deployed with GitHub Pages using `.github/workflows/pages.yml`.
 
-The mutable starting Constitution and current laws belong to each individual save. Constitutional votes modify the save's live Constitution rather than rewriting the static rulebook file.
+### Cloud backend
 
-## Multiplayer security model
-
-The Lobby Owner sequences actions, but connected peers no longer trust arbitrary owner state replacements. Each online political mutation is signed by the player who requested it, re-authorized against that player's canonical identity/role, replayed deterministically by every peer, and accepted only when the resulting state hash matches. Lobby Owner migration claims are also identity-signed and must advance exactly one authority epoch from the deterministic eligible successor.
-
-First-time joins require the Lobby Owner fingerprint. Full invite links carry it automatically; manual room-code joins must paste the 64-character fingerprint obtained from the host out-of-band.
-
-The **Recovery** tab shows local/peer state versions and authority epochs, recovery packets exchanged during migration, verified local snapshots, and unrevealed sealed ballots. It can request a canonical resync, rebroadcast recovery state, or restore an integrity-checked snapshot.
-
-## Network Failure and Recovery (Phase 21)
-
-Phase 21 adds deliberate recovery paths for failures that automatic migration cannot safely solve:
-
-- **Secure resync** — peers request missing signed transitions rather than accepting a fresh arbitrary full-state overwrite.
-- **Recovery-state rebroadcast** — useful when an owner migration appears stuck or peers need to re-advertise their latest state.
-- **Peer diagnostics** — shows state version, authority epoch and current network role for connected peers.
-- **Migration recovery copies** — shows the recovery-state copies seen during the current session.
-- **Verified snapshot restore** — snapshot hashes and event-head hashes are checked before restore, and a pre-restore safety snapshot is created automatically.
-- **Sealed ballot recovery** — the ballot-box holder can export a password-protected `.dbr` recovery package. Another browser can import it using the passphrase and continue counting the same sealed vote.
-
-Ballot recovery packages use PBKDF2-SHA-256 (250,000 iterations) to derive an AES-GCM-256 encryption key. The ballot private key is therefore never placed in normal replicated state.
-
-## Security / Identity (Phase 18–19)
-
-Each browser can generate a persistent ECDSA P-256 player identity. In 1.0.3 the secure signing key is stored as a non-extractable Web Crypto key in IndexedDB rather than as plaintext private JWK data in localStorage. The public key fingerprint is bound to the in-game player. Reconnection and every online political action prove possession of that key.
-
-Official history is hash-chained with SHA-256. Each event records its sequence number, the previous event hash and its own hash. Snapshots and exported saves also contain integrity hashes so unexpected modification can be detected.
-
-Legacy 1.0.2 identity files can still be imported once and are converted into the non-extractable storage format. New raw private-key export is intentionally disabled. Losing the browser profile therefore means losing that identity unless an older compatible backup already exists.
-
-## Sealed Secret Ballots (Phase 20)
-
-Secret votes opened through the normal UI now use a sealed ballot box. Each ballot choice is encrypted in the voter's browser using hybrid RSA-OAEP + AES-GCM encryption before entering shared state. The replicated state records only encrypted ballot envelopes plus participation markers while voting is open.
-
-When the vote closes, the ballot-box holder decrypts the envelopes locally and submits a randomized-order list of plaintext choices for tallying. The ballot-box private key is not replicated into shared state. A browser holding the ballot-box key (or an imported recovery package) can audit the revealed multiset against the encrypted envelopes. Sealed ballots cannot be changed after submission.
-
-This is not threshold cryptography: the ballot-box holder can technically decrypt early, so strong secrecy from that holder still requires a future threshold/mix-net design.
-
-The browser that opens a sealed vote still holds the live ballot-box private key locally, but Phase 21 can now export that key as a password-protected recovery package and import it on another trusted browser if recovery is required.
-
-Automated test:
+Deploy the Worker/Durable Object backend:
 
 ```bash
-node tests/phase20-secret-ballots.mjs
+npm run cloud:deploy
 ```
 
+Set the deployed Worker URL in **Multiplayer → Cloud backend URL**. Cloud invite links include that backend URL automatically, so a new player's browser can connect without manual configuration.
 
-## Next Phase
+`wrangler.jsonc` currently allows these browser origins:
 
-**Phase 22 — User Interface Redesign**
+- `https://ben-mcgrath-dev.github.io`
+- `http://localhost:8000`
+- `http://127.0.0.1:8000`
 
-The next phase focuses on turning the technically complete administration screens into a cleaner game-like interface while preserving the established political and recovery systems.
+Update `ALLOWED_ORIGINS` if the frontend is deployed somewhere else.
 
+## Cloud room flow
 
-## Current Build
+### Create / migrate a game
 
-**v0.30.0-phase30**
+1. Create or load a Democracy locally.
+2. Open **Multiplayer**.
+3. Configure the Worker URL.
+4. Choose **Publish & Connect**.
+5. Share the generated Cloud invite link.
 
-The current build completes Phase 30. It includes the full offline political engine, P2P multiplayer, recovery, cryptographic security on HTTPS, LAN Test Mode for development, accessibility/PWA support, automated/stress testing, security hardening and GitHub Pages deployment configuration.
+Existing local and former P2P saves can be published to Cloud. Political state and history are preserved; obsolete P2P transport metadata is normalised before upload.
 
+### Join
 
-## Notifications, PWA and Accessibility (Phases 24–26)
+1. Open the Cloud invite link or enter a room code.
+2. The browser proves possession of its ECDSA P-256 identity.
+3. Existing players are matched to their registered public key.
+4. New identities submit a join request.
+5. The Host, Deputy Host, or pre-Host creator approves/rejects the request.
 
-Phase 24 adds an in-app attention centre derived from canonical game state, optional browser notifications, unread/dismissed alerts, deadline warnings, unvoted-ballot reminders, caretaker/early-election warnings and accused-player case-response alerts. Notifications are optional and never required for game correctness.
+## Cloud recovery
 
-Phase 25 adds a Web App Manifest, application icons, service worker shell caching and an install prompt where supported. Democracy Web remains a normal static GitHub Pages site and does not require installation.
+Cloud multiplayer supports:
 
-Phase 26 adds keyboard-visible focus, a skip link, accessible route state, modal focus trapping and Escape dismissal, focus restoration, live announcements, reduced-motion support, forced-colour support and mobile-accessibility refinements.
+- automatic reconnect after WebSocket/network loss;
+- browser sleep/wake recovery;
+- resume from the last verified commit;
+- bounded commit-delta replay;
+- persistent chunked SQLite snapshots;
+- full verified snapshot + commit recovery when a delta is not possible;
+- canonical server time for multiplayer deadlines.
 
+The browser refuses to submit official Cloud actions until the recovered state has been verified.
 
-## Phase 27 — Automated Rule Testing
+## Security model
 
-Run the larger command-line property suite with:
+- ECDSA P-256 private signing keys remain in the browser.
+- Secure private keys are non-extractable and stored through IndexedDB/Web Crypto.
+- Cloud actions are signed by the player who requested them.
+- The Durable Object rechecks signature, replay nonce, state version and political permissions.
+- Clients independently verify the originating signature, applied action, commit chain and resulting state hash.
+- Production Worker URLs must use HTTPS; plain HTTP is accepted only for localhost development.
+- Runtime third-party JavaScript is not required for multiplayer in 1.1.
+
+Cloudflare is still trusted for **availability and ordering**. It can theoretically delay, censor or reorder simultaneously valid requests, but it cannot create a valid signed action on behalf of another player without that player's private key.
+
+## Secret ballots
+
+Sealed ballots remain encrypted in shared state. The ballot-box private key is not replicated through normal Cloud state. A password-protected `.dbr` recovery package can be exported for critical ballots.
+
+Current limitation: the browser holding the ballot-box private key can technically decrypt early. Threshold/mix-net ballot secrecy is a future improvement.
+
+## Main project layout
+
+```text
+js/                 Browser UI/runtime
+shared/             Deterministic rules shared by browser + Worker
+worker/src/          Cloudflare Worker + DemocracyRoom Durable Object
+css/                UI styling
+data/               Starting rules/laws data
+tests/              Automated/regression/security tests
+wrangler.jsonc       Cloudflare configuration
+```
+
+## Tests
+
+Run the focused 1.1 test set:
 
 ```bash
-node tests/phase27-rules.mjs
+npm test
 ```
 
-It runs 10,000 deterministic randomized scenarios over legislature sizing, committee thresholds, largest-remainder allocation, ranked-choice counting, turnout and ballot invariants.
-
-## Phase 28 — Synthetic Multiplayer Stress Testing
-
-Run:
+Run all Cloud migration tests:
 
 ```bash
-node tests/phase28-stress.mjs
+npm run test:cloud
 ```
 
-This creates a 100-player fixture, audits it, measures serialized state size, estimates full-state owner fan-out for 2/10/25/50/100-player lobbies and benchmarks election-counting throughput. It is a synthetic harness: real WebRTC/NAT connection-success measurements still require multi-browser/device alpha testing.
+The repository also retains the older political, security and recovery regression suites. Legacy P2P-specific tests detect the 1.1 cutover and report that their transport has been intentionally retired.
 
-## Phase 29 — Security and Abuse Hardening
+## Release
 
-Production use requires HTTPS (GitHub Pages supplies HTTPS). Phase 29 adds a restrictive Content Security Policy, referrer protection, network action/state size limits, safer join-name handling, replay/staleness checks, explicit secure-context detection and a visible private-LAN development mode. Plain HTTP on private LAN IPs no longer crashes on `crypto.subtle`; it enters clearly marked **LAN Test Mode** with non-secure development identity proofs. Sealed secret ballots remain disabled until HTTPS is used.
+**1.1.0 — Cloud Multiplayer Cutover**
 
-See [`SECURITY.md`](./SECURITY.md) for the trust model.
-
-## Phase 30 — GitHub Pages Deployment
-
-The repository now includes `.nojekyll`, a Pages deployment workflow at `.github/workflows/pages.yml`, a simple `404.html` recovery page, and production-relative asset paths. Push the repository to the `main` branch, enable **Settings → Pages → Source: GitHub Actions**, and the included workflow can publish the static app. No application server is required.
-
-For local multi-device testing, run `start-lan.bat`. Use the printed `http://192.168...:8000` address on other devices. This is development-only LAN Test Mode; use the deployed HTTPS Pages URL to test the full cryptographic feature set.
-
----
-
-## Version 1.0
-
-Democracy Web has reached its stable release line (`1.0.4`). The original Phase 0–33 development roadmap is complete.
-
-Version 1.0 includes the complete offline political simulation, invite-based P2P multiplayer, persistence/recovery, cryptographic identities, sealed ballots, mobile/PWA/accessibility work, automated rule testing, stress tooling, production hardening and GitHub Pages deployment support.
-
-For release-specific information see [`RELEASE_NOTES.md`](./RELEASE_NOTES.md) and [`CHANGELOG.md`](./CHANGELOG.md).
-
-The in-app **Release** page can generate a privacy-safe diagnostics report for bug reports and rerun the first-use walkthrough.
-
-
-## TURN Relay Fallback
-
-Democracy Web normally connects peers directly with WebRTC. Some restrictive NAT/firewall combinations require a TURN relay. Version 1.0.3 supports TURN through the **Multiplayer → TURN Relay Fallback** panel.
-
-TURN configuration is stored only in the local browser and is not included in Democracy saves or shared state. Configure one or more `turn:` / `turns:` URLs, username and credential. You can temporarily enable **Force relay for testing** to verify the relay by forcing WebRTC to use relay candidates.
-
-The project does not bundle public TURN credentials. A TURN service (hosted or self-hosted, such as coturn) is still required when relay connectivity is needed.
+Phase 44 completes the Phase 34–44 Cloudflare migration roadmap.

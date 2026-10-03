@@ -2,7 +2,9 @@ import fs from 'node:fs';
 import { createGame, dispatch, getState, loadState } from '../js/state.js';
 import { verifyEventChain, hashJson } from '../js/integrity.js';
 
-const network=fs.readFileSync(new URL('../js/network.js',import.meta.url),'utf8');
+const legacyP2P=fs.existsSync(new URL('../js/network.js',import.meta.url));
+const network=legacyP2P?fs.readFileSync(new URL('../js/network.js',import.meta.url),'utf8'):'';
+const cloud=fs.readFileSync(new URL('../js/cloud-network.js',import.meta.url),'utf8');
 const identity=fs.readFileSync(new URL('../js/identity.js',import.meta.url),'utf8');
 const storage=fs.readFileSync(new URL('../js/storage.js',import.meta.url),'utf8');
 const config=fs.readFileSync(new URL('../js/config.js',import.meta.url),'utf8');
@@ -10,13 +12,13 @@ const app=fs.readFileSync(new URL('../js/app.js',import.meta.url),'utf8');
 const checks=[
   [identity.includes("ECDSA") && identity.includes("P-256"),'ECDSA P-256 browser identity'],
   [identity.includes('exportIdentityBlob') && identity.includes('importIdentityFile'),'identity export/import'],
-  [network.includes('verifySignedPayload'),'Lobby Owner signature verification'],
-  [network.includes("kind:'game-action'") || network.includes("kind: 'game-action'"),'signed game-action envelope'],
-  [network.includes('seenActionNonces'),'replay nonce protection'],
-  [network.includes('identityFingerprint'),'player fingerprint binding'],
+  [legacyP2P ? network.includes('verifySignedPayload') : cloud.includes('verifyCloudSignedPayload'),'online signature verification'],
+  [legacyP2P ? (network.includes("kind:'game-action'") || network.includes("kind: 'game-action'")) : cloud.includes('cloudActionPayload'),'signed game-action envelope'],
+  [legacyP2P ? network.includes('seenActionNonces') : cloud.includes('nonce'),'replay nonce protection'],
+  [legacyP2P ? network.includes('identityFingerprint') : cloud.includes('fingerprint'),'player fingerprint binding'],
   [storage.includes('stateHash') && storage.includes('eventHeadHash'),'snapshot/export integrity hashes'],
   [app.includes('export-identity') && app.includes('import-identity'),'identity management UI'],
-  [/APP_VERSION\s*=\s*'(?:1\.0\.[0-9]+|0\.(?:1[9]|2[0-9]|[3-9][0-9])\.0-phase(?:1[9]|2[0-9]|[3-9][0-9]))'/.test(config),'Phase 19 version']
+  [/APP_VERSION\s*=\s*'(?:1\.[1-9]\.0(?:-phase\d+)?|1\.0\.[0-9]+|0\.(?:1[9]|2[0-9]|[3-9][0-9])\.0-phase(?:1[9]|2[0-9]|[3-9][0-9]))'/.test(config),'Phase 19 version']
 ];
 for(const [ok,name] of checks){if(!ok)throw new Error(`FAIL: ${name}`);console.log(`PASS: ${name}`);}
 

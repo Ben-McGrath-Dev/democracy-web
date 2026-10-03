@@ -1,4 +1,10 @@
 import fs from 'node:fs';
+const LEGACY_P2P_RETIRED = !fs.existsSync(new URL('../js/network.js', import.meta.url));
+if (LEGACY_P2P_RETIRED) {
+  console.log('PASS: legacy P2P transport intentionally retired in Democracy Web 1.1 / Phase 44');
+  process.exit(0);
+}
+
 
 const network = fs.readFileSync(new URL('../js/network.js', import.meta.url), 'utf8');
 const app = fs.readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');

@@ -1,31 +1,33 @@
-# Democracy Web 1.0.4
+# Democracy Web 1.1.0 — Cloud Multiplayer Cutover
 
-Democracy Web 1.0.4 improves first-time multiplayer connectivity without weakening the 1.0.3 authority/security model.
+Version 1.1 replaces the production WebRTC/P2P transport with Cloudflare Durable Objects and WebSockets.
 
-## Signaling hotfix
-- Democracy Web now uses a curated set of six Nostr signaling relays instead of Trystero's full default pool.
-- The failing `wss://nostr.tegila.com.br/` relay is not used.
-- Individual relay failures are silent; the Multiplayer page reports how many signaling relays are actually connected.
-- One failed signaling relay does not imply that the lobby or WebRTC peer connection has failed.
+## Highlights
 
-## Fixed in this release
-- Initial join acknowledgement and canonical checkpoint are now delivered as one atomic signed bootstrap packet, removing a race that could leave clients stuck on “Waiting for join approval…”.
-- Full invite links continue to pin the Lobby Owner fingerprint automatically.
-- Room-code-only joins can discover a self-signed owner identity, but the app requires the user to compare a short verification code with the host before trusting it.
-- Conflicting discovered owner fingerprints trigger a security warning and cannot be auto-trusted.
-- A client joining a new lobby no longer inherits authority epoch/owner metadata from an unrelated local save.
-- Lobby Owner migration cannot start while an initial join/bootstrap is incomplete.
-- Join retries last longer and restart when the pinned owner appears.
+- Cloudflare Durable Object per multiplayer room.
+- SQLite-backed canonical state, signed commit history and persistent chunked snapshots.
+- Player ECDSA identities remain browser-owned.
+- Every online political mutation is player-signed.
+- Durable Object verifies signature, nonce, state version, permissions and deterministic transition.
+- Clients independently replay and verify each committed action and resulting state hash.
+- Canonical Cloud time controls multiplayer deadlines.
+- Automatic reconnect/resume after network loss or browser sleep.
+- Verified commit-delta catch-up with persistent snapshot fallback.
+- Existing local/legacy saves can be published to Cloud.
+- Cloud invite links carry both room code and backend address.
+- Legacy Trystero, Nostr signaling, WebRTC, TURN and Lobby Owner network migration removed from production.
+- Browser CSP no longer allows the old runtime CDN dependencies.
 
-## Security retained from 1.0.3
-- Signed deterministic political transitions independently verified by peers.
-- Signed strictly sequential owner migration claims.
-- Non-extractable player signing keys in IndexedDB.
-- Proposer/role authorization for sensitive law and constitutional mutations.
-- Ballot-box private keys remain local/recovery-only.
+## Offline mode
 
-## Remaining limitations
-- Trystero 0.25.4 is still runtime-loaded from pinned CDN providers; vendoring remains a supply-chain hardening item.
-- A secret-ballot box key holder can technically decrypt before close; threshold/mix-net voting is required to prevent this cryptographically.
+Offline/local games remain supported with IndexedDB autosave, local snapshots and `.democracy` import/export.
 
-All existing regression suites plus the new secure first-join tests pass.
+## Deployment requirement
+
+Production multiplayer requires a deployed Cloudflare Worker/Durable Object backend. After deployment, set its HTTPS URL in the Multiplayer page; generated invite links carry that URL to joining browsers.
+
+## Security notes
+
+Cloudflare is trusted for service availability and ordering, but not for player identity. A valid player action still requires that player's private signing key, and clients verify the signed commit independently.
+
+The remaining major cryptographic limitation is sealed-ballot early-decryption capability by the browser holding the ballot-box private key. Threshold/mix-net ballot secrecy is not part of 1.1.

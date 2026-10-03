@@ -1,0 +1,36 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { webcrypto } from 'node:crypto';
+globalThis.crypto ??= webcrypto;
+import { CLOUD_MESSAGE } from '../shared/protocol.js';
+import { cloudPlayerIdForFingerprint } from '../shared/cloud-action.js';
+import { canAdministerPlayers } from '../shared/permissions.js';
+
+assert.equal(CLOUD_MESSAGE.JOIN_REQUEST, 'JOIN_REQUEST');
+assert.equal(CLOUD_MESSAGE.JOIN_REQUESTS, 'JOIN_REQUESTS');
+assert.equal(CLOUD_MESSAGE.JOIN_DECISION, 'JOIN_DECISION');
+assert.equal(CLOUD_MESSAGE.JOIN_APPROVED, 'JOIN_APPROVED');
+assert.equal(CLOUD_MESSAGE.JOIN_REJECTED, 'JOIN_REJECTED');
+const fp='a'.repeat(64);
+assert.equal(cloudPlayerIdForFingerprint(fp), `player_cloud_${'a'.repeat(24)}`);
+assert.throws(()=>cloudPlayerIdForFingerprint('bad'),/valid identity fingerprint/);
+const state={meta:{hostPlayerId:null,deputyHostPlayerId:null},players:{creator:{id:'creator',roles:['creator'],status:'active'},other:{id:'other',roles:[],status:'active'}}};
+assert.equal(canAdministerPlayers(state,'creator'),true);
+assert.equal(canAdministerPlayers(state,'other'),false);
+state.meta.hostPlayerId='other';
+assert.equal(canAdministerPlayers(state,'creator'),false);
+assert.equal(canAdministerPlayers(state,'other'),true);
+
+const worker=fs.readFileSync(new URL('../worker/src/index.js',import.meta.url),'utf8');
+const client=fs.readFileSync(new URL('../js/cloud-network.js',import.meta.url),'utf8');
+assert.match(worker,/CREATE TABLE IF NOT EXISTS join_requests/);
+assert.match(worker,/Only approved players may decide join requests/);
+assert.match(worker,/Join approval action does not exactly match the pending verified join request/);
+assert.match(worker,/upgradeFingerprintToPlayer/);
+assert.match(worker,/Cloud player creation requires an approved pending join request/);
+assert.match(worker,/same cryptographic identity on more than one player/);
+assert.match(client,/requestCloudJoin/);
+assert.match(client,/approveCloudJoin/);
+assert.match(client,/rejectCloudJoin/);
+assert.match(client,/joinRequestId/);
+console.log('Phase 39 secure Cloud join/approval: PASS');

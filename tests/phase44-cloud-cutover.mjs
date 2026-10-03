@@ -1,0 +1,37 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+
+const read = path => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+const app = read('js/app.js');
+const cloud = read('js/cloud-network.js');
+const cloudConfig = read('js/cloud-config.js');
+const config = read('js/config.js');
+const worker = read('worker/src/index.js');
+const html = read('index.html');
+const sw = read('sw.js');
+const release = read('js/release.js');
+const pkg = JSON.parse(read('package.json'));
+
+assert.equal(fs.existsSync(new URL('../js/network.js', import.meta.url)), false, 'legacy P2P runtime must be removed');
+assert.match(config, /APP_VERSION = '1\.1\.0'/);
+assert.equal(pkg.version, '1.1.0');
+assert.match(cloudConfig, /enabled:\s*true/);
+assert.match(app, /from '\.\/cloud-network\.js'/);
+assert.doesNotMatch(app, /from '\.\/network\.js'/);
+assert.doesNotMatch(app, /createOnlineLobby|joinOnlineLobby|TURN Relay Fallback|Signaling Relay Health|setBackupOwnerPlayer/);
+assert.match(app, /cloudInviteUrl/);
+assert.match(app, /backendFromUrl/);
+assert.match(app, /await connectCloudRoom\(roomFromUrl\)/);
+assert.match(cloud, /url\.searchParams\.set\('room', code\)/);
+assert.match(cloud, /url\.searchParams\.set\('cloud', settings\.apiBase\)/);
+assert.match(cloud, /Production Cloud backends must use HTTPS/);
+assert.doesNotMatch(sw, /js\/network\.js/);
+assert.match(sw, /democracy-web-v110/);
+assert.match(html, /script-src 'self';/);
+assert.doesNotMatch(html, /esm\.run|esm\.sh|cdn\.jsdelivr|nostr/);
+assert.match(worker, /phases: \[36, 37, 38, 39, 40, 41, 42, 43, 44\]/);
+assert.match(worker, /transport: 'cloud-websocket'/);
+assert.match(release, /RELEASE_CHANNEL = 'stable'/);
+assert.match(release, /RELEASE_NAME = 'Democracy Web 1\.1'/);
+assert.doesNotMatch(release, /Trystero 0\.25\.4 is version-pinned/);
+console.log('Phase 44 final Cloud multiplayer cutover: PASS');

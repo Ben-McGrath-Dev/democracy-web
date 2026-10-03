@@ -1,0 +1,13 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const worker=fs.readFileSync(new URL('../worker/src/index.js',import.meta.url),'utf8');
+const client=fs.readFileSync(new URL('../js/cloud-network.js',import.meta.url),'utf8');
+assert.match(worker,/POST/);
+assert.match(worker,/\/rooms/);
+assert.match(worker,/room_code_in_use/);
+assert.match(worker,/creatorFingerprint/);
+assert.match(worker,/creatorPublicJwk/);
+assert.match(worker,/status: '(?:signed-action-sequencer|durable-recovery-sequencer)'/);
+assert.match(client,/createCloudRoom/);
+assert.match(client,/creatorPlayerId/);
+console.log('Phase 36 room lifecycle: PASS');

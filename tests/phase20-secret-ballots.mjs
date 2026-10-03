@@ -30,7 +30,7 @@ vote = getState().votes['secret-test'];
 assert(Object.keys(vote.ballots).length === 0, 'Plaintext ballot map should remain empty for sealed votes.');
 assert(vote.sealedBallots.length === 3, 'Expected three sealed ballot envelopes.');
 assert(Object.keys(vote.submittedVoters).length === 3, 'Expected three submission markers.');
-assert(!JSON.stringify(vote.sealedBallots).includes('yes'), 'Ciphertext state leaked a plaintext choice.');
+assert(vote.sealedBallots.every(envelope => !('choice' in envelope) && !('voterId' in envelope) && typeof envelope.ciphertext === 'string' && typeof envelope.wrappedKey === 'string'), 'Sealed ballot envelope stored plaintext choice or voter identity.');
 
 let duplicateRejected = false;
 try {

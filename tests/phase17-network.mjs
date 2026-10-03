@@ -1,5 +1,11 @@
 import fs from 'node:fs';
 import { createGame, getState, updateTechnicalNetworkState, loadState } from '../js/state.js';
+const LEGACY_P2P_RETIRED = !fs.existsSync(new URL('../js/network.js', import.meta.url));
+if (LEGACY_P2P_RETIRED) {
+  console.log('PASS: legacy P2P transport intentionally retired in Democracy Web 1.1 / Phase 44');
+  process.exit(0);
+}
+
 
 const network = fs.readFileSync(new URL('../js/network.js', import.meta.url), 'utf8');
 const app = fs.readFileSync(new URL('../js/app.js', import.meta.url), 'utf8');
@@ -17,7 +23,7 @@ const checks = [
   [network.includes("bestRecoveryState"), 'newest-state recovery selection'],
   [app.includes("set-backup-owner"), 'backup owner UI'],
   [app.includes("resumeOnlineSession"), 'automatic refresh reconnect'],
-  [/APP_VERSION\s*=\s*'(?:1\.0\.[0-9]+|0\.(?:1[7-9]|2[0-9]|[3-9][0-9])\.0-phase(?:1[7-9]|2[0-9]|[3-9][0-9]))'/.test(config), 'phase 17 version']
+  [/APP_VERSION\s*=\s*'(?:1\.[1-9]\.0(?:-phase\d+)?|1\.0\.[0-9]+|0\.(?:1[7-9]|2[0-9]|[3-9][0-9])\.0-phase(?:1[7-9]|2[0-9]|[3-9][0-9]))'/.test(config), 'phase 17 version']
 ];
 for (const [ok, name] of checks) {
   if (!ok) throw new Error(`FAIL: ${name}`);

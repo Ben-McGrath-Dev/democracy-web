@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { splitUtf8Text, joinSnapshotChunks, CLOUD_SNAPSHOT_CHUNK_BYTES } from '../shared/cloud-recovery.js';
+
+const encoder = new TextEncoder();
+const sample = JSON.stringify({ text:'αβγ🙂'.repeat(90_000), payload:'x'.repeat(180_000) });
+const chunks = splitUtf8Text(sample, 64 * 1024);
+assert.ok(chunks.length > 1);
+assert.equal(joinSnapshotChunks(chunks, chunks.length), sample);
+for (const chunk of chunks) assert.ok(encoder.encode(chunk).byteLength <= 64 * 1024);
+assert.equal(CLOUD_SNAPSHOT_CHUNK_BYTES, 256 * 1024);
+assert.throws(() => joinSnapshotChunks(chunks, chunks.length + 1), /incomplete/i);
+
+const worker=fs.readFileSync(new URL('../worker/src/index.js',import.meta.url),'utf8');
+const protocol=fs.readFileSync(new URL('../shared/protocol.js',import.meta.url),'utf8');
+const client=fs.readFileSync(new URL('../js/cloud-network.js',import.meta.url),'utf8');
+assert.match(worker,/CREATE TABLE IF NOT EXISTS snapshots/);
+assert.match(worker,/CREATE TABLE IF NOT EXISTS snapshot_chunks/);
+assert.match(worker,/SNAPSHOT_INTERVAL = 50/);
+assert.match(worker,/createPersistentSnapshot\(0,/);
+assert.match(worker,/snapshotCount === 0 && existingState/);
+assert.match(worker,/sequence % SNAPSHOT_INTERVAL === 0/);
+assert.match(worker,/transactionSync/);
+assert.match(worker,/sendRecoveryBundle/);
+assert.match(worker,/commitsAfter/);
+assert.match(protocol,/RECOVERY_BUNDLE/);
+assert.match(client,/applyRecoveryBundle/);
+assert.match(client,/persistent-snapshot\+commits/);
+assert.match(client,/commit-delta/);
+console.log('Phase 42 durable snapshot/action-history recovery: PASS');

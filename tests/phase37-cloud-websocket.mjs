@@ -1,0 +1,14 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const worker=fs.readFileSync(new URL('../worker/src/index.js',import.meta.url),'utf8');
+const client=fs.readFileSync(new URL('../js/cloud-network.js',import.meta.url),'utf8');
+assert.match(worker,/WebSocketPair/);
+assert.match(worker,/acceptWebSocket/);
+assert.match(worker,/serializeAttachment/);
+assert.match(worker,/webSocketMessage/);
+assert.match(worker,/webSocketClose/);
+assert.match(client,/new WebSocket/);
+assert.match(client,/wss:/);
+assert.match(client,/CLOUD_MESSAGE\.WELCOME/);
+assert.match(client,/CLOUD_MESSAGE\.PRESENCE/);
+console.log('Phase 37 Cloud WebSocket transport: PASS');

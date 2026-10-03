@@ -141,6 +141,6 @@ export function runSyntheticStressSuite(state, { seed = 0x51A7E, samples = 600 }
     },
     audit: { ...audit, durationMs: auditMs },
     durationMs: performance.now() - started,
-    note: 'Synthetic stress measures state size, fan-out cost, counting throughput and state integrity. Real WebRTC connection success still depends on actual browsers/NATs and should be measured during alpha.'
+    note: 'Synthetic stress measures state size, Cloud snapshot fan-out cost, counting throughput and state integrity. Real Cloudflare WebSocket capacity and latency should also be measured against the deployed Worker.'
   };
 }

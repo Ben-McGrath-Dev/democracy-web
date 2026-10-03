@@ -2,18 +2,19 @@ import fs from 'node:fs';
 import assert from 'node:assert/strict';
 const read = p => fs.readFileSync(new URL(p, import.meta.url), 'utf8');
 const app = read('../js/app.js');
-const net = read('../js/network.js');
+const legacyP2P = fs.existsSync(new URL('../js/network.js', import.meta.url));
+const net = legacyP2P ? read('../js/network.js') : read('../js/cloud-network.js');
 const storage = read('../js/storage.js');
 const ballots = read('../js/secret-ballots.js');
 const config = read('../js/config.js');
 const html = read('../index.html');
 const checks = [
-  ['Phase 21+ version', /(?:1\.0\.[0-9]+|0\.(2[1-9]|[3-9][0-9])\.0-phase)/.test(config)],
+  ['Phase 21+ version', /(?:1\.[1-9]\.0(?:-phase\d+)?|1\.0\.[0-9]+|0\.(2[1-9]|[3-9][0-9])\.0-phase)/.test(config)],
   ['Recovery navigation', html.includes('data-route="recovery"')],
   ['Recovery route', app.includes("registerRoute('recovery', recoveryPage)" )],
-  ['Manual full resync', net.includes('export function requestFullResync')],
-  ['Recovery-state rebroadcast', net.includes('export function broadcastRecoveryState')],
-  ['Recovery diagnostics', net.includes('export function getRecoveryDiagnostics')],
+  ['Manual full resync', legacyP2P ? net.includes('export function requestFullResync') : net.includes('export function requestCloudResync')],
+  ['Recovery-state rebroadcast / durable recovery', legacyP2P ? net.includes('export function broadcastRecoveryState') : net.includes('RECOVERY_BUNDLE')],
+  ['Recovery diagnostics', legacyP2P ? net.includes('export function getRecoveryDiagnostics') : net.includes('recoverySource')],
   ['Verified snapshot read', storage.includes('export async function getSnapshot')],
   ['Snapshot restore', storage.includes('export async function restoreSnapshot')],
   ['Snapshot audit', storage.includes('export async function verifySnapshots')],

@@ -1,6 +1,6 @@
 import { APP_VERSION } from './config.js';
 import { createGame, dispatch as localDispatch, getState, hasGame, loadState, subscribe } from './state.js';
-import { createOnlineLobby, joinOnlineLobby, leaveOnlineLobby, subscribeNetwork, getNetworkStatus, getLocalPlayerId, inviteUrl, submitAction, setBackupOwnerPlayer, getReconnectSession, resumeOnlineSession, trustDiscoveredOwner, requestFullResync, broadcastRecoveryState, getRecoveryDiagnostics, getTurnSettings, setTurnSettings, clearTurnSettings } from './network.js';
+import { createCloudRoom, connectCloudRoom, leaveCloudRoom, subscribeCloudNetwork, getCloudStatus, getCloudSettings, setCloudSettings, requestCloudJoin, approveCloudJoin, rejectCloudJoin, submitCloudAction, requestCloudResync, getCloudNowMs, restoreCloudSession, prepareCloudMigrationState, cloudInviteUrl } from './cloud-network.js';
 import { ensureIdentity, getStoredIdentitySummary, exportIdentityBlob, importIdentityFile } from './identity.js';
 import { securitySummary, hasSecureCrypto } from './security.js';
 import { verifyEventChain } from './integrity.js';
@@ -51,7 +51,16 @@ let lastStressResult = null;
 const runtimeErrors = [];
 const ONBOARDING_KEY = 'democracy-web-onboarding-v1';
 
-function dispatch(action) { return submitAction(action); }
+function dispatch(action) {
+  const cloud = getCloudStatus();
+  if (cloud.roomCode || cloud.authenticated) {
+    if (!(cloud.connection === 'connected' && cloud.authenticated && cloud.localPlayerId && cloud.stateSynced)) {
+      throw new Error('Cloud multiplayer is not fully synchronised yet. Reconnect or wait for verified recovery before changing official state.');
+    }
+    return submitCloudAction(action);
+  }
+  return localDispatch(action);
+}
 
 function toast(message, kind = 'normal') {
   const region = document.querySelector('#toastRegion');
@@ -124,10 +133,9 @@ function showModal({ title, body, confirmText = 'Confirm', cancelText = 'Cancel'
 
 function localActorId(state = getState()) {
   if (!state) return null;
-  const net = getNetworkStatus();
-  const networkPlayer = getLocalPlayerId();
-  if (networkPlayer && state.players?.[networkPlayer]) return networkPlayer;
-  if (net.role !== 'offline') return null;
+  const cloud = getCloudStatus();
+  if (cloud.connection === 'connected' && cloud.localPlayerId && state.players?.[cloud.localPlayerId]) return cloud.localPlayerId;
+  if (cloud.roomCode || cloud.authenticated) return null;
   const creator = Object.values(state.players).find(p => p.roles?.includes('creator') && p.status !== 'resigned' && p.status !== 'removed');
   return creator?.id ?? Object.values(state.players).find(p => p.status === 'active')?.id ?? Object.keys(state.players)[0] ?? null;
 }
@@ -138,7 +146,7 @@ function isHostLikeLocal(state, playerId = localActorId(state)) {
   return !state.meta?.hostPlayerId && state.players?.[playerId]?.roles?.includes('creator');
 }
 
-function isOnlineGame() { return getNetworkStatus().role !== 'offline'; }
+function isOnlineGame() { const cloud=getCloudStatus(); return cloud.connection === 'connected' && cloud.authenticated; }
 
 function statCard(value, label) {
   return `<div class="card stat"><span class="value">${escapeHtml(value)}</span><span class="label">${escapeHtml(label)}</span></div>`;
@@ -226,7 +234,7 @@ function ballotSummary(vote, state) {
 }
 
 function voteCard(vote, state) {
-  const seconds = secondsRemaining(vote);
+  const seconds = secondsRemaining(vote, getCloudNowMs());
   const cast = vote.secretBallotMode === 'sealed-v1' ? Object.keys(vote.submittedVoters ?? {}).length : Object.keys(vote.ballots ?? {}).length;
   const electorate = vote.electorateSnapshot?.length ?? 0;
   return `<article class="card vote-card">
@@ -408,8 +416,8 @@ function testLabPage() {
   const fanoutRows = lastStressResult ? lastStressResult.fanout.map(row => `<tr><td>${row.players}</td><td>${row.peers}</td><td>${(row.oneFullBroadcastBytes/1024).toFixed(1)} KiB</td><td>${(row.tenFullBroadcastsBytes/1024/1024).toFixed(2)} MiB</td></tr>`).join('') : '';
   return `<section class="section-header"><div><h1>Test & Stress Lab</h1><p class="muted">Phases 12, 27 and 28 tools for test data, structural audits, randomized rule invariants and synthetic multiplayer load measurements.</p></div></section>
     <div class="grid grid-4">${statCard(audit.errors,'Audit Errors')}${statCard(audit.warnings,'Audit Warnings')}${statCard(`${passed}/${readiness.length}`,'Readiness Checks')}${statCard(state.history?.length ?? 0,'Official Events')}</div>
-    <section class="section grid grid-2"><article class="card"><h2>Phase 27 — Rule Property Tests</h2><p class="muted">Runs 2,000 deterministic randomized scenarios against election allocation, ranked-choice counting, turnout, legislative majorities and committee thresholds.</p><p><strong>${ruleSummary}</strong></p>${lastRuleTestResult && !lastRuleTestResult.ok ? `<ul class="list">${lastRuleTestResult.failures.slice(0,8).map(f=>`<li class="list-row"><span>${escapeHtml(f.name)}</span><code>${escapeHtml(f.detail||'')}</code></li>`).join('')}</ul>` : ''}<div class="btn-row"><button class="btn btn-primary" data-action="run-rule-tests">Run Rule Tests</button></div></article><article class="card"><h2>Phase 28 — Synthetic Multiplayer Stress</h2><p class="muted">Measures current save size, full-state P2P fan-out, election-counting throughput and integrity-audit cost at 2/10/25/50/100-player scales.</p><p><strong>${stressSummary}</strong></p><div class="btn-row"><button class="btn btn-primary" data-action="run-stress-tests">Run Stress Test</button></div></article></section>
-    ${lastStressResult ? `<section class="section card"><h2>State Broadcast Cost</h2><div class="table-wrap"><table class="data-table"><thead><tr><th>Players</th><th>Remote peers</th><th>1 full broadcast</th><th>10 broadcasts</th></tr></thead><tbody>${fanoutRows}</tbody></table></div><p class="muted">${escapeHtml(lastStressResult.note)}</p></section>` : ''}
+    <section class="section grid grid-2"><article class="card"><h2>Phase 27 — Rule Property Tests</h2><p class="muted">Runs 2,000 deterministic randomized scenarios against election allocation, ranked-choice counting, turnout, legislative majorities and committee thresholds.</p><p><strong>${ruleSummary}</strong></p>${lastRuleTestResult && !lastRuleTestResult.ok ? `<ul class="list">${lastRuleTestResult.failures.slice(0,8).map(f=>`<li class="list-row"><span>${escapeHtml(f.name)}</span><code>${escapeHtml(f.detail||'')}</code></li>`).join('')}</ul>` : ''}<div class="btn-row"><button class="btn btn-primary" data-action="run-rule-tests">Run Rule Tests</button></div></article><article class="card"><h2>Phase 28 — Synthetic Multiplayer Stress</h2><p class="muted">Measures current save size, Cloud snapshot broadcast fan-out, election-counting throughput and integrity-audit cost at 2/10/25/50/100-player scales.</p><p><strong>${stressSummary}</strong></p><div class="btn-row"><button class="btn btn-primary" data-action="run-stress-tests">Run Stress Test</button></div></article></section>
+    ${lastStressResult ? `<section class="section card"><h2>State Broadcast Cost</h2><div class="table-wrap"><table class="data-table"><thead><tr><th>Players</th><th>Recipients</th><th>1 snapshot broadcast</th><th>10 snapshot broadcasts</th></tr></thead><tbody>${fanoutRows}</tbody></table></div><p class="muted">${escapeHtml(lastStressResult.note)}</p></section>` : ''}
     <section class="card section"><div class="section-header compact-header"><div><h2>Test Data</h2><p class="muted">These tools deliberately change the current save. Export a backup first if this is a real game.</p></div></div><div class="btn-row"><button class="btn btn-primary" data-action="generate-test-players">Generate Players to 30</button><button class="btn" data-action="generate-test-parties">Create 3 Test Parties</button><button class="btn" data-action="distribute-test-players">Distribute Independents</button></div></section>
     <section class="card section"><div class="section-header compact-header"><div><h2>Offline Alpha Readiness</h2><p class="muted">This is a progress checklist, not a requirement that every real game contain all of these at once.</p></div><span class="pill">${passed}/${readiness.length}</span></div><ul class="list">${readinessRows}</ul></section>
     <section class="card section"><div class="section-header compact-header"><div><h2>State Integrity Audit</h2><p class="muted">Cross-checks references between players, parties, Parliament, government, committees, votes and cases.</p></div><button class="btn" data-action="rerun-audit">Run Again</button></div><ul class="list">${auditRows}</ul></section>`;
@@ -426,7 +434,7 @@ function homePage() {
       <section class="section"><div class="quick-links"><button class="quick-link" data-route="votes"><strong>Votes</strong><span>${openVotes} currently open</span></button><button class="quick-link" data-route="parliament"><strong>Parliament</strong><span>${state.legislature?.totalSeats || 0} seats</span></button><button class="quick-link" data-route="government"><strong>Government</strong><span>${escapeHtml(state.government?.status || 'Not formed')}</span></button><button class="quick-link" data-route="laws"><strong>Laws</strong><span>${Object.keys(state.laws ?? {}).length} in the statute book</span></button></div></section>
       <section class="section card"><div class="section-header compact-header"><div><h2>Recent official activity</h2><p class="muted">The latest changes to this Democracy.</p></div><button class="btn" data-route="dashboard">Full dashboard</button></div>${historyList(state,8)}</section>`;
   }
-  return `<section class="hero"><div><span class="pill">Free · P2P · Browser based</span><h1>Run a democracy.<br>Not a spreadsheet.</h1><p>Official elections, Parliament, governments, laws, constitutional procedure and cases in one shared political game. Keep the campaigning in WhatsApp or Discord; Democracy Web keeps the official record.</p><div class="btn-row" style="margin-top:22px"><button class="btn btn-primary" data-route="create">Create Democracy</button><button class="btn" data-route="load">Open Saved Game</button></div></div><div class="hero-panel"><h3>Built for real groups</h3><ul class="list"><li class="list-row"><span>Free static hosting</span><strong>✓</strong></li><li class="list-row"><span>P2P multiplayer</span><strong>✓</strong></li><li class="list-row"><span>Automatic elections & counts</span><strong>✓</strong></li><li class="list-row"><span>Constitution & legislation</span><strong>✓</strong></li><li class="list-row"><span>Committees & cases</span><strong>✓</strong></li><li class="list-row"><span>Mobile-friendly sharing</span><strong>✓</strong></li></ul></div></section>`;
+  return `<section class="hero"><div><span class="pill">Free · Cloud connected · Browser based</span><h1>Run a democracy.<br>Not a spreadsheet.</h1><p>Official elections, Parliament, governments, laws, constitutional procedure and cases in one shared political game. Keep the campaigning in WhatsApp or Discord; Democracy Web keeps the official record.</p><div class="btn-row" style="margin-top:22px"><button class="btn btn-primary" data-route="create">Create Democracy</button><button class="btn" data-route="load">Open Saved Game</button></div></div><div class="hero-panel"><h3>Built for real groups</h3><ul class="list"><li class="list-row"><span>Free static hosting</span><strong>✓</strong></li><li class="list-row"><span>Cloud multiplayer</span><strong>✓</strong></li><li class="list-row"><span>Automatic elections & counts</span><strong>✓</strong></li><li class="list-row"><span>Constitution & legislation</span><strong>✓</strong></li><li class="list-row"><span>Committees & cases</span><strong>✓</strong></li><li class="list-row"><span>Mobile-friendly sharing</span><strong>✓</strong></li></ul></div></section>`;
 }
 function createPage() {
   return `
@@ -489,7 +497,7 @@ async function loadRulebook() {
 
 
 function refreshAttention(state = getState(), notify = false) {
-  attentionItems = deriveAttention(state, localActorId(state));
+  attentionItems = deriveAttention(state, localActorId(state), getCloudNowMs());
   const pref = notificationPrefs();
   const visible = attentionItems.filter(item => !pref.dismissed?.[item.id]);
   const unread = visible.filter(item => !pref.seen?.[item.id]).length;
@@ -612,103 +620,75 @@ function identityCard() {
   return `<section class="section card"><h2>Player Identity</h2><p class="muted">The signing key is held by this browser, not inside the Democracy save. Secure identities use a non-extractable Web Crypto key stored in IndexedDB.</p><dl class="kv"><dt>Algorithm</dt><dd>${escapeHtml(identity?.algorithm || 'ECDSA P-256 / SHA-256')}</dd><dt>Fingerprint</dt><dd><code>${escapeHtml(fp)}</code></dd><dt>Private key</dt><dd>${escapeHtml(identity?.privateKeyStorage || 'Not generated')}</dd><dt>Created</dt><dd>${identity?.createdAt ? escapeHtml(formatDateTime(identity.createdAt)) : '—'}</dd></dl><div class="btn-row"><button class="btn" data-action="generate-identity">${identity?'Verify Identity':'Generate Identity'}</button><button class="btn" data-action="import-identity">Import Legacy Identity</button></div><p class="muted"><strong>1.0.3 security change:</strong> raw private-key export is disabled for newly secured identities, preventing the signing key from being copied out of browser storage as plaintext JWK.</p></section>`;
 }
 
-function relayRetryLabel(nextRetryAt, status) {
-  if (status === 'connected') return 'Connected';
-  if (!nextRetryAt) return status === 'unavailable' ? 'Retry timing unavailable' : 'Retrying now';
-  return `<span data-relay-retry-at="${Number(nextRetryAt)}">Retrying…</span>`;
-}
+function cloudMultiplayerCard(state) {
+  const cloud = getCloudStatus();
+  const settings = getCloudSettings();
+  const creator = state ? Object.values(state.players ?? {}).find(player => player.roles?.includes('creator')) : null;
+  const activeSession = Boolean(cloud.roomCode);
+  const connected = cloud.connection === 'connected';
+  const statusLabel = ({
+    offline:'Offline', connecting:'Connecting…', authenticating:'Authenticating…', connected:'Connected',
+    syncing:'Resynchronising…', reconnecting:'Reconnecting…', disconnected:'Disconnected', error:'Error'
+  })[cloud.connection] || cloud.connection;
+  const roleLabel = cloud.authRole === 'creator' ? 'Creator' : cloud.authRole === 'player' ? 'Approved player' : cloud.authRole === 'unregistered' ? 'Authenticated · awaiting approval' : '—';
+  const joinRequests = cloud.joinRequests || [];
+  const requestsHtml = joinRequests.length ? `<div class="section"><div class="section-header compact-header"><div><h3>Join Requests</h3><p class="muted">Each request is tied to a verified public key. Approval becomes a signed canonical player-add transition.</p></div><span class="badge">${joinRequests.length}</span></div>${joinRequests.map(req=>`<article class="notice"><div class="split"><div><strong>${escapeHtml(req.displayName)}</strong><br><small class="muted">Identity ${escapeHtml(req.fingerprint.slice(0,12))}… · ${formatDateTime(req.requestedAt)}</small></div><div class="btn-row"><button class="btn btn-primary" data-action="cloud-approve-join" data-request-id="${escapeHtml(req.requestId)}">Approve</button><button class="btn" data-action="cloud-reject-join" data-request-id="${escapeHtml(req.requestId)}">Reject</button></div></div></article>`).join('')}</div>` : '';
 
-function relayHealthPanel(signaling = {}) {
-  const rows = signaling.relays ?? [];
-  const summary = rows.length
-    ? `${signaling.open ?? 0}/${rows.length} connected${signaling.unavailable ? ` · ${signaling.unavailable} unavailable` : ''}`
-    : 'Starting…';
-  const body = rows.map(relay => {
-    const host = String(relay.url || '').replace(/^wss?:\/\//, '').replace(/\/$/, '');
-    const statusClass = relay.status === 'connected' ? 'status-active' : (relay.status === 'retrying' ? 'status-inactive' : 'status-error');
-    const reason = relay.lastFailureReason || 'None';
-    const failureTime = relay.lastFailureAt ? formatDateTime(relay.lastFailureAt) : '—';
-    return `<div class="relay-health-row">
-      <div class="relay-health-main"><span class="relay-health-dot relay-${escapeHtml(relay.status || 'retrying')}"></span><code title="${escapeHtml(relay.url || '')}">${escapeHtml(host)}</code></div>
-      <span class="status ${statusClass}">${escapeHtml(relay.status || 'retrying')}</span>
-      <div class="relay-health-meta"><span><strong>Last failure:</strong> ${escapeHtml(reason)}</span><span class="muted">${escapeHtml(failureTime)}</span></div>
-      <div class="relay-health-retry">${relayRetryLabel(relay.nextRetryAt, relay.status)}</div>
-    </div>`;
-  }).join('');
-  return `<section class="section card relay-health-panel"><div class="section-header compact-header"><div><h2>Signaling Relay Health</h2><p class="muted">Live status for the Nostr relay sockets Democracy Web is actually using. Individual relay failures do not stop multiplayer while other relays remain connected.</p></div><span class="pill">${escapeHtml(summary)}</span></div>${body || '<div class="empty">Relay sockets are starting…</div>'}</section>`;
-}
+  let sessionHtml = '';
+  if (activeSession) {
+    const invite = (() => { try { return cloudInviteUrl(cloud.roomCode); } catch { return ''; } })();
+    sessionHtml = `<div class="grid grid-4"><div><span class="page-kicker">Room</span><strong>${escapeHtml(cloud.roomCode||'—')}</strong></div><div><span class="page-kicker">Identity</span><strong>${escapeHtml(roleLabel)}</strong></div><div><span class="page-kicker">State</span><strong>#${Number(cloud.stateVersion||0)}</strong></div><div><span class="page-kicker">Commit</span><strong>#${Number(cloud.commitSequence||0)}</strong></div></div>`;
+    if (cloud.authRole === 'unregistered') {
+      const joinState = cloud.joinStatus === 'pending' || cloud.joinStatus === 'requesting'
+        ? `<div class="notice"><strong>Join request pending</strong><p>The authorised Host, Deputy Host, or pre-Host creator must approve this verified identity before it receives the canonical game state.</p></div>`
+        : cloud.joinStatus === 'rejected'
+          ? `<div class="notice danger"><strong>Join request rejected</strong><p>You may submit a new request if the Host asks you to try again.</p></div>`
+          : `<article class="notice"><strong>Request to join this Democracy</strong><p>Your browser has proved ownership of its cryptographic identity but is not yet a player in this room.</p><div class="field"><label>Display name</label><input id="cloudJoinDisplayName" maxlength="50" placeholder="Your player name"></div><button class="btn btn-primary" data-action="cloud-request-join">Request to Join</button></article>`;
+      sessionHtml += joinState;
+    } else {
+      sessionHtml += `<div class="grid grid-3"><div><span class="page-kicker">Local player</span><strong>${escapeHtml(cloud.displayName||cloud.localPlayerId||'—')}</strong></div><div><span class="page-kicker">Connected clients</span><strong>${Number(cloud.connectedClients||0)}</strong></div><div><span class="page-kicker">State integrity</span><strong>${cloud.stateSynced && cloud.stateHash ? 'Verified' : 'Waiting…'}</strong></div></div>
+        <div class="grid grid-3 section"><div><span class="page-kicker">Canonical clock</span><strong>${cloud.lastTimeSyncAt ? `${Number(cloud.serverTimeOffsetMs||0)>=0?'+':''}${Number(cloud.serverTimeOffsetMs||0)} ms` : 'Syncing…'}</strong><br><small class="muted">RTT ${cloud.clockRttMs == null ? '—' : `${Number(cloud.clockRttMs)} ms`}</small></div><div><span class="page-kicker">Recovery</span><strong>${escapeHtml(cloud.recoverySource||'Waiting…')}</strong></div><div><span class="page-kicker">Persistent snapshot</span><strong>#${Number(cloud.snapshotSequence||0)}</strong></div></div>
+        ${cloud.connection==='reconnecting' ? `<div class="notice"><strong>Automatic reconnect active</strong><p>Attempt ${Number(cloud.reconnectAttempt||0)}${cloud.nextReconnectAt ? ` · next retry in ${Math.max(0,Math.ceil((cloud.nextReconnectAt-Date.now())/1000))}s` : ''}. The last verified state remains available read-only until recovery completes.</p></div>` : ''}
+        ${requestsHtml}
+        <div class="btn-row"><button class="btn" data-action="cloud-resync">Request Verified Resync</button></div>`;
+    }
+    if (invite) sessionHtml += `<section class="section notice"><strong>Invite</strong><div class="field"><label>Cloud invite link</label><input readonly value="${escapeHtml(invite)}"></div><div class="btn-row"><button class="btn btn-primary" data-action="copy-cloud-invite">Copy Invite Link</button><button class="btn" data-action="copy-cloud-room">Copy Room Code</button></div><p class="muted">The invite includes the room code and Cloud backend address. Player identity is still verified cryptographically after connection.</p></section>`;
+    sessionHtml += `<div class="btn-row"><button class="btn btn-danger" data-action="cloud-leave">Disconnect Cloud</button></div>`;
+  } else {
+    sessionHtml = `<div class="grid grid-2"><article class="notice"><strong>Publish current save to Cloud</strong><p>Creates a Durable Object room from the current verified save. Political state and history are preserved; obsolete P2P transport metadata is normalised.</p><div class="field"><label>Optional room code</label><input id="cloudCreateRoom" maxlength="6" placeholder="Leave blank to generate"></div><button class="btn btn-primary" data-action="cloud-create" ${state&&creator?'':'disabled'}>Publish & Connect</button></article><article class="notice"><strong>Join Cloud room</strong><p>Existing players are recognised by their signing key. New identities authenticate first, then request approval.</p><div class="field"><label>Room code</label><input id="cloudJoinRoom" maxlength="6" value="${escapeHtml(new URL(location.href).searchParams.get('room')||'')}" placeholder="ABC234"></div><button class="btn" data-action="cloud-connect">Connect</button></article></div>`;
+  }
 
-function turnSettingsCard(connected = false) {
-  const turn = getTurnSettings();
-  const urls = (turn.urls ?? []).join('\n');
-  const status = turn.urls?.length
-    ? `<span class="status status-active">Configured · ${turn.urls.length} relay URL${turn.urls.length === 1 ? '' : 's'}${turn.forceRelay ? ' · forced relay test' : ''}</span>`
-    : '<span class="status status-inactive">Not configured</span>';
-  return `<section class="section card"><div class="section-header compact-header"><div><h2>TURN Relay Fallback</h2><p class="muted">Direct P2P is preferred. If a network blocks direct WebRTC, Trystero can use these TURN relays instead. Settings stay on this browser and are never added to the Democracy save.</p></div>${status}</div>
-    ${connected ? '<div class="notice"><strong>Reconnect required</strong><p>Changes to TURN settings apply the next time you create or join a lobby.</p></div>' : ''}
+  return `<section class="section card"><div class="section-header compact-header"><div><span class="page-kicker">Democracy Web 1.1</span><h2>Cloud Multiplayer</h2><p class="muted">Cloudflare Durable Objects are now the production multiplayer transport. Signed actions, deterministic client verification, durable snapshots, and automatic reconnect replace the former WebRTC/P2P stack.</p></div><span class="status ${connected?'status-active':cloud.connection==='error'?'status-error':'status-inactive'}">${escapeHtml(statusLabel)}</span></div>
     <div class="form-grid">
-      <div class="field"><label for="turnUrls">TURN URL(s)</label><textarea id="turnUrls" rows="3" placeholder="turn:relay.example.com:3478&#10;turns:relay.example.com:5349">${escapeHtml(urls)}</textarea><small class="muted">One per line or comma-separated. Both <code>turn:</code> and <code>turns:</code> are supported.</small></div>
-      <div class="grid grid-2">
-        <div class="field"><label for="turnUsername">Username</label><input id="turnUsername" autocomplete="off" value="${escapeHtml(turn.username || '')}" placeholder="TURN username"></div>
-        <div class="field"><label for="turnCredential">Credential</label><input id="turnCredential" type="password" autocomplete="new-password" placeholder="${turn.credential ? 'Saved — leave blank to keep' : 'TURN password / credential'}"></div>
-      </div>
-      <label class="checkbox-row"><input id="turnForceRelay" type="checkbox" ${turn.forceRelay ? 'checked' : ''}> <span><strong>Force relay for testing</strong><br><small class="muted">Uses <code>iceTransportPolicy: relay</code>. Enable temporarily to prove the TURN server works even when direct P2P would succeed.</small></span></label>
-      <div class="btn-row"><button class="btn btn-primary" data-action="save-turn-settings">Save TURN Settings</button><button class="btn" data-action="clear-turn-settings">Clear</button></div>
+      <div class="field"><label for="cloudApiBase">Cloud backend URL</label><input id="cloudApiBase" value="${escapeHtml(settings.apiBase)}" placeholder="https://your-worker.workers.dev"><small class="muted">For local development use <code>http://localhost:8787</code>. Production invite links carry this backend address automatically.</small></div>
+      ${sessionHtml}
+      ${cloud.lastError ? `<div class="notice danger"><strong>Cloud error</strong><p>${escapeHtml(cloud.lastError)}</p></div>` : ''}
+      <div class="btn-row"><button class="btn" data-action="cloud-save-settings">Save Backend URL</button></div>
     </div>
   </section>`;
 }
 
 function multiplayerPage() {
-  const net = getNetworkStatus();
   const state = getState();
-  const multiplayerUrl = new URL(location.href);
-  const roomParam = multiplayerUrl.searchParams.get('room') || '';
-  const ownerFingerprintParam = multiplayerUrl.searchParams.get('ownerfp') || '';
-  const remembered = roomParam ? getReconnectSession(roomParam) : null;
-  const localName = net.localPlayerId && state?.players?.[net.localPlayerId]?.displayName;
-  if (net.role === 'offline') return `<section class="section-header"><div><h1>Multiplayer</h1><p class="muted">Free peer-to-peer multiplayer. The Lobby Owner holds the authoritative state; constitutional offices remain separate.</p></div></section>
-    <div class="grid grid-2">
-      <article class="card"><h2>Create Online Lobby</h2><p>Load or create a Democracy first, then expose that save as a P2P lobby.</p><div class="field"><label>Lobby code</label><input id="createRoomCode" maxlength="8" placeholder="Leave blank to generate"></div><button class="btn btn-primary" data-action="create-online-lobby" ${state?'':'disabled'}>Create Lobby</button></article>
-      <article class="card"><h2>${remembered ? 'Reconnect to Lobby' : 'Join Lobby'}</h2><p>${remembered ? `A saved continuity identity exists for this lobby${remembered.displayName ? ` as <strong>${escapeHtml(remembered.displayName)}</strong>` : ''}.` : 'You do not need a local save. The Lobby Owner will create your player and send you the canonical state.'}</p><div class="field"><label>Lobby code</label><input id="joinRoomCode" maxlength="8" value="${escapeHtml(roomParam)}"></div><div class="field"><label>Lobby Owner fingerprint <span class="muted">(optional)</span></label><input id="joinOwnerFingerprint" maxlength="64" value="${escapeHtml(ownerFingerprintParam || remembered?.ownerFingerprint || '')}" placeholder="Filled automatically by invite link"><small class="muted">Full invite links pin the owner automatically. With only a room code, Democracy Web will discover the owner identity and ask you to verify a short code before joining.</small></div><div class="field"><label>Your display name</label><input id="joinDisplayName" maxlength="50" value="${escapeHtml(remembered?.displayName||'')}" placeholder="Player name"></div><div class="btn-row"><button class="btn btn-primary" data-action="join-online-lobby">${remembered?'Reconnect':'Join Lobby'}</button>${remembered?'<button class="btn" data-action="join-online-new-identity">Join as New Player</button>':''}</div></article>
-    </div>
-    <section class="section card"><h2>Continuity</h2><p class="muted">This browser uses a persistent cryptographic identity. Reconnection proves possession of its private key instead of trusting a display name or reconnect token.</p></section>${turnSettingsCard(false)}${identityCard()}`;
-  const invite = inviteUrl();
-  const ownerFingerprint = state?.players?.[net.ownerPlayerId]?.identityFingerprint || '';
-  const ownerVerifyCode = ownerFingerprint ? `${ownerFingerprint.slice(0,6).toUpperCase()}-${ownerFingerprint.slice(6,12).toUpperCase()}` : '—';
-  const peers = Object.entries(net.peerInfo||{}).map(([peerId,info])=>({peerId,...info,player:state?.players?.[info.playerId]}));
-  const backupOptions = peers.filter(p=>p.playerId && p.playerId!==net.localPlayerId).map(p=>`<option value="${escapeHtml(p.playerId)}" ${p.playerId===net.backupOwnerPlayerId?'selected':''}>${escapeHtml(p.player?.displayName||p.playerId)}</option>`).join('');
-  const statusLabel = ({connected:'Connected',connecting:'Connecting…',reconnecting:'Reconnecting…','discovering-owner':'Discovering owner…','awaiting-owner-trust':'Verify Lobby Owner',migrating:'Migrating owner…',disconnected:'Disconnected','security-error':'Security error'})[net.connectionState] || net.connectionState;
-  return `<section class="section-header"><div><h1>Multiplayer</h1><p class="muted">Connected as <strong>${escapeHtml(net.role === 'owner' ? 'Lobby Owner' : 'Peer')}</strong>${localName ? ` · ${escapeHtml(localName)}` : ''} · ${escapeHtml(statusLabel)}</p></div><button class="btn btn-danger" data-action="leave-online-lobby">Leave Lobby</button></section>
-    <div class="grid grid-4">${statCard(net.roomCode||'—','Room Code')}${statCard(net.connectedPeers.length,'Connected Peers')}${statCard(state?.stateVersion??'—','State Version')}${statCard(`#${net.authorityEpoch}`,'Authority Epoch')}</div>
-    <section class="section grid grid-2"><article class="card"><h2>Invite</h2><div class="field"><label>Invite link</label><input id="inviteLink" readonly value="${escapeHtml(invite)}"></div><dl class="kv"><dt>Owner verification code</dt><dd><code>${escapeHtml(ownerVerifyCode)}</code></dd></dl><div class="btn-row"><button class="btn btn-primary" data-action="copy-invite-link">Copy Invite Link</button><button class="btn" data-action="copy-room-code">Copy Room Code</button><button class="btn" data-action="copy-owner-code">Copy Verification Code</button></div></article>
-    <article class="card"><h2>Network Status</h2><dl class="kv"><dt>Connection</dt><dd>${escapeHtml(statusLabel)}</dd><dt>Local Peer ID</dt><dd><code>${escapeHtml(net.localPeerId||'—')}</code></dd><dt>Lobby Owner Peer</dt><dd><code>${escapeHtml(net.ownerPeerId||'migrating…')}</code></dd><dt>Lobby Owner Player</dt><dd>${escapeHtml(state?.players?.[net.ownerPlayerId]?.displayName||net.ownerPlayerId||'—')}</dd><dt>Local Player</dt><dd>${escapeHtml(localName||net.localPlayerId||'Waiting for join approval…')}</dd><dt>Signaling Relays</dt><dd>${net.signaling?.observed ? `${escapeHtml(String(net.signaling.open))}/${escapeHtml(String(net.signaling.observed))} connected${net.signaling.open ? (net.signaling.open < net.signaling.observed ? ' · degraded but usable' : '') : ' · connecting…'}` : 'Starting…'}</dd><dt>TURN Fallback</dt><dd>${net.turn?.configured ? `Configured (${escapeHtml(String(net.turn.urlCount))} URL${net.turn.urlCount===1?'':'s'})${net.turn.forceRelay?' · forced':''}` : 'Not configured'}</dd><dt>Last Error</dt><dd>${escapeHtml(net.lastError||'None')}</dd></dl></article></section>
-    ${relayHealthPanel(net.signaling)}
-    ${net.connectionState==='awaiting-owner-trust' && net.discoveredOwner ? `<section class="section card"><h2>Verify Lobby Owner</h2>${net.discoveredOwnerConflict ? `<div class="notice"><strong>Conflicting identities detected</strong><p>More than one different identity answered this room code. Do not continue until the host gives you the full 64-character fingerprint.</p></div>` : `<p>A self-signed Lobby Owner identity was discovered. Before trusting it, compare this verification code with the host by voice, message, or in person.</p><div class="grid grid-2"><div><span class="page-kicker">Owner</span><h3>${escapeHtml(net.discoveredOwner.displayName||net.discoveredOwner.playerId||'Lobby Owner')}</h3></div><div><span class="page-kicker">Verification code</span><h3><code>${escapeHtml((net.discoveredOwner.fingerprint||'').slice(0,6).toUpperCase())}-${escapeHtml((net.discoveredOwner.fingerprint||'').slice(6,12).toUpperCase())}</code></h3></div></div><details><summary>Full fingerprint</summary><code class="break-all">${escapeHtml(net.discoveredOwner.fingerprint||'')}</code></details><div class="btn-row section"><button class="btn btn-primary" data-action="trust-discovered-owner">Code Matches — Trust & Join</button><button class="btn" data-action="leave-online-lobby">Cancel</button></div><p class="muted">This confirmation pins the cryptographic owner identity for future reconnects. If the code does not match, cancel.</p>`}</section>` : ''}
-    ${turnSettingsCard(true)}
-    ${identityCard()}
-    ${net.role==='owner' ? `<section class="section card"><h2>Lobby Owner Migration</h2><p class="muted">Choose a preferred backup. If you disappear, connected peers first prefer this player; otherwise they deterministically choose the same eligible replacement. The replacement recovers the newest state it can see and increments the authority epoch.</p><div class="field"><label>Preferred backup owner</label><select id="backupOwnerPlayer"><option value="">Automatic</option>${backupOptions}</select></div><button class="btn" data-action="set-backup-owner">Save Backup Choice</button></section>` : `<section class="section card"><h2>Owner Recovery</h2><p class="muted">If the Lobby Owner disconnects, this client will enter migration mode, exchange recovery copies with the remaining peers, and continue automatically if a replacement is available.</p></section>`}
-    <section class="section card"><h2>Connected Peers</h2>${peers.length?`<div class="table-wrap"><table class="data-table"><thead><tr><th>Player</th><th>Peer</th><th>State</th><th>Epoch</th></tr></thead><tbody>${peers.map(p=>`<tr><td>${escapeHtml(p.player?.displayName||p.playerId||'Joining…')}</td><td><code>${escapeHtml(p.peerId.slice(0,12))}</code></td><td>#${escapeHtml(String(p.stateVersion??'—'))}</td><td>#${escapeHtml(String(p.authorityEpoch??'—'))}</td></tr>`).join('')}</tbody></table></div>`:'<div class="empty">No other peers connected yet.</div>'}</section>`;
+  return `<section class="section-header"><div><h1>Multiplayer</h1><p class="muted">Reliable signed multiplayer over Cloudflare WebSockets. No WebRTC, TURN, Nostr relays, or Lobby Owner network migration.</p></div></section>${cloudMultiplayerCard(state)}${identityCard()}`;
 }
 
 function recoveryPage() {
   const state = getState();
   if (!state) return noGamePage();
-  const net = getRecoveryDiagnostics();
-  const sealedVotes = Object.values(state.votes ?? {}).filter(v => v.secretBallotMode === 'sealed-v1' && !v.revealedAt);
+  const cloud = getCloudStatus();
   const snapshotRows = recoverySnapshots.map(snap => {
     const audit = recoverySnapshotAudit.find(a => a.snapshotId === snap.snapshotId);
     return `<tr><td>#${escapeHtml(String(snap.stateVersion))}</td><td>${escapeHtml(formatDateTime(snap.createdAt))}</td><td>${escapeHtml(snap.reason || 'snapshot')}</td><td>${audit ? (audit.ok ? '<span class="status status-active">Verified</span>' : '<span class="status status-removed">Invalid</span>') : '—'}</td><td><button class="btn" data-action="restore-snapshot" data-snapshot-id="${escapeHtml(snap.snapshotId)}" ${audit && !audit.ok ? 'disabled' : ''}>Restore</button></td></tr>`;
   }).join('');
-  const peerRows = (net.peers ?? []).map(p => `<tr><td><code>${escapeHtml((p.peerId||'').slice(0,14))}</code></td><td>${escapeHtml(state.players?.[p.playerId]?.displayName || p.playerId || 'Unknown')}</td><td>#${escapeHtml(String(p.stateVersion ?? 0))}</td><td>#${escapeHtml(String(p.authorityEpoch ?? 0))}</td><td>${escapeHtml(p.role || 'peer')}</td></tr>`).join('');
-  const packetRows = (net.recoveryPackets ?? []).map(p => `<tr><td><code>${escapeHtml((p.peerId||'').slice(0,14))}</code></td><td>#${escapeHtml(String(p.stateVersion ?? 0))}</td><td>#${escapeHtml(String(p.authorityEpoch ?? 0))}</td><td><code>${escapeHtml((p.eventHeadHash||'—').slice(0,16))}</code></td></tr>`).join('');
+  const sealedVotes = Object.values(state.votes ?? {}).filter(v => v.secretBallotMode === 'sealed-v1' && !v.revealedAt);
   const ballotRows = sealedVotes.map(v => `<tr><td>${escapeHtml(v.id)}</td><td>${escapeHtml(v.title)}</td><td>${Object.keys(v.submittedVoters ?? {}).length}</td><td>${ballotKeyAvailability[v.id] ? '<span class="status status-active">Key available</span>' : '<span class="status status-inactive">No local key</span>'}</td><td><div class="btn-row compact"><button class="btn" data-action="export-ballot-recovery" data-vote-id="${escapeHtml(v.id)}" ${ballotKeyAvailability[v.id] ? '' : 'disabled'}>Export Recovery</button><button class="btn" data-action="import-ballot-recovery" data-vote-id="${escapeHtml(v.id)}">Import Recovery</button></div></td></tr>`).join('');
-  return `<section class="section-header"><div><h1>Recovery & Diagnostics</h1><p class="muted">Phase 21 tools for state resync, owner-migration recovery, verified snapshots and sealed-ballot key recovery.</p></div><button class="btn" data-action="refresh-recovery">Refresh</button></section>
-  <div class="grid grid-4">${statCard(`#${state.stateVersion}`,'Local State')}${statCard(`#${net.authorityEpoch}`,'Authority Epoch')}${statCard(net.connectionState || 'offline','Network')}${statCard(recoverySnapshots.length,'Snapshots')}</div>
-  <section class="section grid grid-2"><article class="card"><h2>Network Recovery</h2><p class="muted">Use these if a client appears stale or owner migration seems stuck.</p><dl class="kv"><dt>Role</dt><dd>${escapeHtml(net.role)}</dd><dt>Owner Peer</dt><dd><code>${escapeHtml(net.ownerPeerId || 'None')}</code></dd><dt>Owner Player</dt><dd>${escapeHtml(state.players?.[net.ownerPlayerId]?.displayName || net.ownerPlayerId || 'None')}</dd><dt>Local event head</dt><dd><code>${escapeHtml((net.localEventHeadHash || '—').slice(0,20))}</code></dd><dt>Last error</dt><dd>${escapeHtml(net.lastError || 'None')}</dd></dl><div class="btn-row"><button class="btn btn-primary" data-action="manual-resync" ${net.role==='offline'?'disabled':''}>Request / Broadcast Full State</button><button class="btn" data-action="recovery-broadcast" ${net.role==='offline'?'disabled':''}>Rebroadcast Recovery State</button></div></article>
-  <article class="card"><h2>Recovery Rules</h2><ul><li>Higher authority epochs supersede lower epochs.</li><li>During migration, peers exchange their latest canonical state.</li><li>Snapshot restore creates a safety snapshot first.</li><li>Sealed-ballot private keys are never placed in normal shared game state.</li></ul></article></section>
-  <section class="section card"><h2>Connected Peer Versions</h2>${peerRows ? `<div class="table-wrap"><table class="data-table compact-table"><thead><tr><th>Peer</th><th>Player</th><th>State</th><th>Epoch</th><th>Role</th></tr></thead><tbody>${peerRows}</tbody></table></div>` : '<div class="empty">No peer diagnostics available.</div>'}</section>
-  <section class="section card"><h2>Migration Recovery Copies</h2>${packetRows ? `<div class="table-wrap"><table class="data-table compact-table"><thead><tr><th>Peer</th><th>State</th><th>Epoch</th><th>Event Head</th></tr></thead><tbody>${packetRows}</tbody></table></div>` : '<div class="empty">No recovery packets have been exchanged in this session.</div>'}</section>
-  <section class="section card"><h2>Verified Local Snapshots</h2><p class="muted">Restoring rewinds the current local canonical state. A pre-restore snapshot is created first.</p>${snapshotRows ? `<div class="table-wrap"><table class="data-table"><thead><tr><th>State</th><th>Created</th><th>Reason</th><th>Integrity</th><th></th></tr></thead><tbody>${snapshotRows}</tbody></table></div>` : '<div class="empty">No snapshots for this game yet.</div>'}</section>
+  const cloudState = cloud.roomCode ? `${cloud.connection}${cloud.stateSynced ? ' · verified' : ''}` : 'offline';
+  return `<section class="section-header"><div><h1>Recovery & Diagnostics</h1><p class="muted">Cloud recovery uses verified commit deltas first and persistent Durable Object snapshots when a full repair is needed. Local snapshots remain available for offline backup and rollback.</p></div><button class="btn" data-action="refresh-recovery">Refresh</button></section>
+  <div class="grid grid-4">${statCard(`#${state.stateVersion}`,'Local State')}${statCard(`#${Number(cloud.commitSequence||0)}`,'Cloud Commit')}${statCard(cloudState,'Cloud')}${statCard(recoverySnapshots.length,'Local Snapshots')}</div>
+  <section class="section grid grid-2"><article class="card"><h2>Cloud Recovery</h2><dl class="kv"><dt>Room</dt><dd>${escapeHtml(cloud.roomCode || 'None')}</dd><dt>Connection</dt><dd>${escapeHtml(cloud.connection || 'offline')}</dd><dt>Player</dt><dd>${escapeHtml(cloud.displayName || cloud.localPlayerId || '—')}</dd><dt>State integrity</dt><dd>${cloud.stateSynced && cloud.stateHash ? 'Verified' : 'Not synchronised'}</dd><dt>Recovery source</dt><dd>${escapeHtml(cloud.recoverySource || '—')}</dd><dt>Persistent snapshot</dt><dd>#${Number(cloud.snapshotSequence || 0)}</dd><dt>Last error</dt><dd>${escapeHtml(cloud.lastError || 'None')}</dd></dl><div class="btn-row"><button class="btn btn-primary" data-action="cloud-resync" ${cloud.roomCode && cloud.authenticated ? '' : 'disabled'}>Request Verified Resync</button></div></article>
+  <article class="card"><h2>Recovery Rules</h2><ul><li>Clients only accept snapshots whose canonical hash verifies.</li><li>Missed actions are replayed from the last verified commit when possible.</li><li>Large gaps fall back to the latest persistent Cloud snapshot plus later signed commits.</li><li>Local snapshot restore creates a pre-restore safety snapshot first.</li><li>Sealed-ballot private keys are never placed in normal Cloud game state.</li></ul></article></section>
+  <section class="section card"><h2>Verified Local Snapshots</h2><p class="muted">These are browser-local safety copies. Restoring rewinds the local save and should not be used to overwrite an active Cloud room; use Verified Resync for Cloud recovery.</p>${snapshotRows ? `<div class="table-wrap"><table class="data-table"><thead><tr><th>State</th><th>Created</th><th>Reason</th><th>Integrity</th><th></th></tr></thead><tbody>${snapshotRows}</tbody></table></div>` : '<div class="empty">No local snapshots for this game yet.</div>'}</section>
   <section class="section card"><h2>Sealed Ballot Recovery</h2><p class="muted">Export a password-protected recovery package before a critical secret vote closes. It contains the ballot-box private key encrypted with PBKDF2 + AES-GCM and can be imported on another browser if the original ballot-box holder is lost.</p>${ballotRows ? `<div class="table-wrap"><table class="data-table"><thead><tr><th>Vote</th><th>Title</th><th>Ballots</th><th>Local Key</th><th>Recovery</th></tr></thead><tbody>${ballotRows}</tbody></table></div>` : '<div class="empty">No unrevealed sealed secret votes exist.</div>'}</section>`;
 }
 
@@ -725,20 +705,20 @@ async function refreshRecoveryData(rerender = true) {
 
 function releasePage() {
   const state = getState();
-  const network = getNetworkStatus();
-  const checks = releaseReadiness(state, network);
+  const cloud = getCloudStatus();
+  const checks = releaseReadiness(state, cloud);
   const passCount = checks.filter(item => item.ok).length;
-  return `<section class="section-header"><div><span class="page-kicker">Stable release</span><h1>Democracy Web 1.0</h1><p class="muted">Released ${escapeHtml(RELEASE_DATE)} · ${escapeHtml(RELEASE_CHANNEL)} channel</p></div><div class="btn-row"><button class="btn btn-primary" data-action="start-onboarding">Show Quick Start</button><button class="btn" data-action="copy-diagnostic-report">Copy Diagnostic Report</button><button class="btn" data-action="download-diagnostic-report">Download Diagnostics</button></div></section>
-  <section class="section grid grid-3"><article class="card"><span class="page-kicker">Release readiness</span><h2>${passCount}/${checks.length}</h2><p class="muted">Checks currently passing on this browser/save.</p></article><article class="card"><span class="page-kicker">Version</span><h2>v${escapeHtml(APP_VERSION)}</h2><p class="muted">First stable release.</p></article><article class="card"><span class="page-kicker">Diagnostics</span><h2>${runtimeErrors.length}</h2><p class="muted">Runtime error(s) captured this session.</p></article></section>
+  return `<section class="section-header"><div><span class="page-kicker">Stable release</span><h1>Democracy Web 1.1</h1><p class="muted">Released ${escapeHtml(RELEASE_DATE)} · ${escapeHtml(RELEASE_CHANNEL)} channel</p></div><div class="btn-row"><button class="btn btn-primary" data-action="start-onboarding">Show Quick Start</button><button class="btn" data-action="copy-diagnostic-report">Copy Diagnostic Report</button><button class="btn" data-action="download-diagnostic-report">Download Diagnostics</button></div></section>
+  <section class="section grid grid-3"><article class="card"><span class="page-kicker">Release readiness</span><h2>${passCount}/${checks.length}</h2><p class="muted">Checks currently passing on this browser/save.</p></article><article class="card"><span class="page-kicker">Version</span><h2>v${escapeHtml(APP_VERSION)}</h2><p class="muted">Cloud multiplayer release.</p></article><article class="card"><span class="page-kicker">Diagnostics</span><h2>${runtimeErrors.length}</h2><p class="muted">Runtime error(s) captured this session.</p></article></section>
   <section class="section card"><h2>Readiness checks</h2><ul class="list">${checks.map(item=>`<li class="list-row"><div><strong>${escapeHtml(item.label)}</strong><div class="muted">${escapeHtml(item.detail)}</div></div><span class="pill">${item.ok?'PASS':'CHECK'}</span></li>`).join('')}</ul></section>
-  <section class="section grid grid-2"><article class="card"><h2>1.0 highlights</h2><ul>${RELEASE_HIGHLIGHTS.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul></article><article class="card"><h2>Known limitations</h2><ul>${KNOWN_LIMITATIONS.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul></article></section>
+  <section class="section grid grid-2"><article class="card"><h2>1.1 highlights</h2><ul>${RELEASE_HIGHLIGHTS.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul></article><article class="card"><h2>Known limitations</h2><ul>${KNOWN_LIMITATIONS.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul></article></section>
   <section class="section card"><h2>Feedback / bug reports</h2><p>Democracy Web does not need a feedback server. The diagnostic report contains build, browser, integrity and networking metadata without including ballot contents, private keys, room codes or save text.</p><p class="muted">If something breaks, copy or download the diagnostic report and attach it to your bug report along with the steps that caused the problem.</p></section>`;
 }
 
 function showOnboarding(force = false) {
   if (!force && localStorage.getItem(ONBOARDING_KEY) === 'done') return;
   showModal({
-    title: 'Welcome to Democracy Web 1.0',
+    title: 'Welcome to Democracy Web 1.1',
     body: `<div class="form-grid"><div class="notice"><strong>1 · Create or load a Democracy</strong><p>Each save carries its own laws, Constitution, political state and history.</p></div><div class="notice"><strong>2 · Add players and parties</strong><p>Run locally first, or open Multiplayer and share an invite link.</p></div><div class="notice"><strong>3 · Run official politics here</strong><p>Use Votes, Elections, Parliament, Government, Laws, Committees and Cases for binding game actions. Keep campaigning in WhatsApp/Discord if you want.</p></div><div class="notice"><strong>4 · Protect long-running games</strong><p>Autosave is automatic, but export regular backups. Production multiplayer should use HTTPS.</p></div></div>`,
     confirmText: 'Start Democracy',
     cancelText: 'Skip',
@@ -748,7 +728,7 @@ function showOnboarding(force = false) {
 }
 
 function diagnosticText() {
-  return buildDiagnosticReport({ state: getState(), networkStatus: getNetworkStatus(), recentErrors: runtimeErrors });
+  return buildDiagnosticReport({ state: getState(), networkStatus: getCloudStatus(), recentErrors: runtimeErrors });
 }
 
 function noGamePage() {
@@ -826,23 +806,8 @@ function queueAutosave(state) {
 
 subscribe(queueAutosave);
 subscribe(state => { refreshAttention(state, true); if (location.hash === '#notifications') renderCurrentRoute(); });
-function updateRelayRetryCountdowns() {
-  const now = Date.now();
-  document.querySelectorAll('[data-relay-retry-at]').forEach(node => {
-    const at = Number(node.dataset.relayRetryAt || 0);
-    if (!at) { node.textContent = 'Retry timing unavailable'; return; }
-    const ms = at - now;
-    if (ms <= 0) node.textContent = 'Retrying now';
-    else node.textContent = `Expected auto retry in ${Math.max(1, Math.ceil(ms / 1000))}s`;
-  });
-}
-setInterval(updateRelayRetryCountdowns, 1000);
-
-subscribeNetwork(() => { if (location.hash === '#multiplayer' || location.hash === '#recovery') renderCurrentRoute(); });
+subscribeCloudNetwork(() => { if (['#multiplayer','#recovery','#release'].includes(location.hash)) renderCurrentRoute(); });
 window.addEventListener('network:action-rejected', e => toast(e.detail?.message || 'Online action rejected', 'error'));
-window.addEventListener('network:reconnected', () => toast('Reconnected as your existing player'));
-window.addEventListener('network:owner-migrated', e => toast(`Lobby Owner migrated successfully (epoch #${e.detail?.authorityEpoch ?? '?'})`));
-window.addEventListener('network:authority-yielded', () => toast('A newer Lobby Owner authority was accepted')); 
 
 
 function downloadState(state) {
@@ -905,10 +870,13 @@ document.addEventListener('click', async event => {
   if (action === 'toggle-mobile-menu') { const menu=document.querySelector('#mobileMenu'); setMobileMenu(!menu?.classList.contains('is-open')); return; }
   if (action === 'share-game') {
     if (!state) return;
-    const net=getNetworkStatus();
-    const link=net.roomCode ? inviteUrl() : location.href.split('#')[0]+'#dashboard';
+    const cloud = getCloudStatus();
+    const link = cloud.roomCode ? cloudInviteUrl(cloud.roomCode) : location.href.split('#')[0]+'#dashboard';
     const gov=state.government?.primeMinisterId ? state.players[state.government.primeMinisterId]?.displayName : 'Not formed';
-    await shareText({title:state.meta.name,text:`🏛 ${state.meta.name}\nPrime Minister: ${gov||'—'}\nOpen votes: ${Object.values(state.votes??{}).filter(v=>v.status==='open').length}${net.roomCode?`\nLobby: ${net.roomCode}`:''}`,url:link}); return;
+    await shareText({title:state.meta.name,text:`🏛 ${state.meta.name}
+Prime Minister: ${gov||'—'}
+Open votes: ${Object.values(state.votes??{}).filter(v=>v.status==='open').length}${cloud.roomCode?`
+Cloud room: ${cloud.roomCode}`:''}`,url:link}); return;
   }
   if (action === 'copy-status-summary') {
     if (!state) return;
@@ -933,14 +901,6 @@ document.addEventListener('click', async event => {
 
   if (action === 'refresh-recovery') {
     try { await refreshRecoveryData(true); toast('Recovery diagnostics refreshed'); } catch(error) { toast(error.message,'error'); }
-    return;
-  }
-  if (action === 'manual-resync') {
-    try { requestFullResync(); toast('Full-state resync requested/broadcast'); } catch(error) { toast(error.message,'error'); }
-    return;
-  }
-  if (action === 'recovery-broadcast') {
-    try { const r=broadcastRecoveryState(); toast(`Recovery state #${r.stateVersion} rebroadcast`); } catch(error) { toast(error.message,'error'); }
     return;
   }
   if (action === 'restore-snapshot') {
@@ -1010,51 +970,80 @@ document.addEventListener('click', async event => {
     return;
   }
 
-  if (action === 'save-turn-settings') {
+  if (action === 'cloud-save-settings') {
     try {
-      const existing = getTurnSettings();
-      const urls = document.querySelector('#turnUrls')?.value || '';
-      const username = document.querySelector('#turnUsername')?.value || '';
-      const typedCredential = document.querySelector('#turnCredential')?.value || '';
-      const forceRelay = Boolean(document.querySelector('#turnForceRelay')?.checked);
-      const saved = setTurnSettings({
-        urls,
-        username,
-        credential: typedCredential || existing.credential || '',
-        forceRelay
-      });
-      toast(saved.urls.length ? `TURN fallback saved (${saved.urls.length} URL${saved.urls.length===1?'':'s'})` : 'TURN fallback cleared');
+      setCloudSettings({ enabled: true, apiBase: document.querySelector('#cloudApiBase')?.value || '' });
+      toast('Cloud multiplayer settings saved');
       renderCurrentRoute();
     } catch (error) { toast(error.message, 'error'); }
     return;
   }
-  if (action === 'clear-turn-settings') {
-    clearTurnSettings();
-    toast('TURN settings cleared');
+  if (action === 'cloud-create') {
+    try {
+      const st = getState();
+      const creator = st ? Object.values(st.players ?? {}).find(player => player.roles?.includes('creator')) : null;
+      if (!st || !creator) throw new Error('Load a Democracy with a creator player first.');
+      const identity = await ensureIdentity();
+      if (identity.insecureLanTest) throw new Error('Cloud multiplayer requires HTTPS or localhost cryptographic identity.');
+      if (creator.identityFingerprint && creator.identityFingerprint !== identity.fingerprint) throw new Error('This browser identity does not own the creator player in this save. Use the browser profile that created/bound that player.');
+      if (!creator.identityFingerprint) {
+        localDispatch({ type: 'PLAYER_IDENTITY_BOUND', actorId: creator.id, playerId: creator.id, identityFingerprint: identity.fingerprint, identityPublicKey: identity.publicJwk });
+      }
+      setCloudSettings({ enabled: true, apiBase: document.querySelector('#cloudApiBase')?.value || getCloudSettings().apiBase });
+      const migratedState = prepareCloudMigrationState(getState());
+      const created = await createCloudRoom({ roomCode: document.querySelector('#cloudCreateRoom')?.value || '', creatorPlayerId: creator.id, displayName: creator.displayName, initialState: migratedState });
+      await connectCloudRoom(created.roomCode);
+      toast(`Cloud room ${created.roomCode} created and authenticated`);
+      renderCurrentRoute();
+    } catch (error) { toast(error.message, 'error'); }
+    return;
+  }
+  if (action === 'cloud-connect') {
+    try {
+      setCloudSettings({ enabled: true, apiBase: document.querySelector('#cloudApiBase')?.value || getCloudSettings().apiBase });
+      await connectCloudRoom(document.querySelector('#cloudJoinRoom')?.value || '');
+      toast('Cloud room authenticated');
+      renderCurrentRoute();
+    } catch (error) { toast(error.message, 'error'); }
+    return;
+  }
+  if (action === 'cloud-leave') {
+    await leaveCloudRoom();
+    toast('Disconnected from Cloud multiplayer');
     renderCurrentRoute();
     return;
   }
+  if (action === 'copy-cloud-invite') {
+    try { await navigator.clipboard.writeText(cloudInviteUrl()); toast('Cloud invite link copied'); }
+    catch (error) { toast(error.message || 'Could not copy Cloud invite link', 'error'); }
+    return;
+  }
+  if (action === 'copy-cloud-room') {
+    try { const room = getCloudStatus().roomCode; if (!room) throw new Error('No Cloud room is connected.'); await navigator.clipboard.writeText(room); toast('Cloud room code copied'); }
+    catch (error) { toast(error.message || 'Could not copy room code', 'error'); }
+    return;
+  }
 
-  if (action === 'create-online-lobby') {
-    try { await createOnlineLobby(document.querySelector('#createRoomCode')?.value || undefined); toast('Online lobby created'); renderCurrentRoute(); }
-    catch (error) { toast(error.message,'error'); }
+  if (action === 'cloud-request-join') {
+    try { requestCloudJoin(document.querySelector('#cloudJoinDisplayName')?.value || ''); toast('Cloud join request sent'); renderCurrentRoute(); }
+    catch (error) { toast(error.message, 'error'); }
     return;
   }
-  if (action === 'join-online-lobby' || action === 'join-online-new-identity') {
-    try { await joinOnlineLobby(document.querySelector('#joinRoomCode')?.value || '', document.querySelector('#joinDisplayName')?.value || '', { forceNewIdentity: action === 'join-online-new-identity', ownerFingerprint: document.querySelector('#joinOwnerFingerprint')?.value || '' }); toast(action === 'join-online-new-identity' ? 'Joining as a new player…' : 'Connecting…'); renderCurrentRoute(); }
-    catch (error) { toast(error.message,'error'); }
+  if (action === 'cloud-approve-join') {
+    try { approveCloudJoin(element.dataset.requestId); toast('Signed join approval submitted'); }
+    catch (error) { toast(error.message, 'error'); }
     return;
   }
-  if (action === 'trust-discovered-owner') {
-    try { await trustDiscoveredOwner(); toast('Lobby Owner identity pinned. Joining…'); renderCurrentRoute(); }
-    catch (error) { toast(error.message,'error'); }
+  if (action === 'cloud-reject-join') {
+    try { rejectCloudJoin(element.dataset.requestId); toast('Signed join rejection submitted'); }
+    catch (error) { toast(error.message, 'error'); }
     return;
   }
-  if (action === 'leave-online-lobby') { leaveOnlineLobby(); toast('Left online lobby'); renderCurrentRoute(); return; }
-  if (action === 'copy-invite-link') { try { await navigator.clipboard.writeText(inviteUrl()); toast('Invite link copied'); } catch { toast('Could not access clipboard','error'); } return; }
-  if (action === 'copy-room-code') { try { await navigator.clipboard.writeText(getNetworkStatus().roomCode || ''); toast('Room code copied'); } catch { toast('Could not access clipboard','error'); } return; }
-  if (action === 'copy-owner-code') { try { const st=getState(); const ns=getNetworkStatus(); const fp=st?.players?.[ns.ownerPlayerId]?.identityFingerprint||''; if(!fp) throw new Error('No owner fingerprint'); await navigator.clipboard.writeText(`${fp.slice(0,6).toUpperCase()}-${fp.slice(6,12).toUpperCase()}`); toast('Owner verification code copied'); } catch { toast('Could not copy owner verification code','error'); } return; }
-  if (action === 'set-backup-owner') { try { setBackupOwnerPlayer(document.querySelector('#backupOwnerPlayer')?.value || null); toast('Backup Lobby Owner preference saved'); renderCurrentRoute(); } catch(error) { toast(error.message,'error'); } return; }
+  if (action === 'cloud-resync') {
+    try { requestCloudResync(); toast('Verified Cloud state resync requested'); }
+    catch (error) { toast(error.message, 'error'); }
+    return;
+  }
 
 
   if (action === 'generate-test-players') {
@@ -1666,13 +1655,27 @@ async function boot() {
   }
   refreshAttention(getState(), false);
   setInterval(()=>{ const st=getState(); if(!st)return; const before=attentionItems.map(i=>i.id).join('|'); refreshAttention(st,true); const after=attentionItems.map(i=>i.id).join('|'); if(before!==after && ['#dashboard','#notifications'].includes(location.hash)) renderCurrentRoute(); },60000);
-  const roomFromUrl = new URL(location.href).searchParams.get('room');
+  const launchUrl = new URL(location.href);
+  const roomFromUrl = launchUrl.searchParams.get('room');
+  const backendFromUrl = launchUrl.searchParams.get('cloud');
+  if (backendFromUrl) {
+    try { setCloudSettings({ enabled: true, apiBase: backendFromUrl }); }
+    catch (error) { console.warn('Invite Cloud backend was rejected', error); toast(error.message, 'error'); }
+  }
   if (roomFromUrl && !location.hash) navigate('multiplayer');
   else renderCurrentRoute();
   if (!roomFromUrl) setTimeout(() => showOnboarding(false), 250);
-  if (roomFromUrl && getReconnectSession(roomFromUrl)) {
-    try { await resumeOnlineSession(roomFromUrl); toast('Attempting automatic lobby reconnection…'); if(location.hash==='#multiplayer') renderCurrentRoute(); }
-    catch (error) { console.warn('Automatic reconnect failed', error); }
+  try {
+    if (roomFromUrl) {
+      await connectCloudRoom(roomFromUrl);
+      toast('Cloud room connected');
+    } else {
+      await restoreCloudSession();
+    }
+    if (getCloudStatus().roomCode && location.hash==='#multiplayer') renderCurrentRoute();
+  } catch (error) {
+    console.warn('Automatic Cloud connection failed', error);
+    if (roomFromUrl) toast(error.message || 'Could not connect to Cloud room', 'error');
   }
 }
 

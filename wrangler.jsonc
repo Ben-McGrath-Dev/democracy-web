@@ -1,0 +1,23 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "democracy-web-cloud",
+  "main": "worker/src/index.js",
+  "compatibility_date": "2026-10-03",
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "DEMOCRACY_ROOMS",
+        "class_name": "DemocracyRoom"
+      }
+    ]
+  },
+  "exports": {
+    "DemocracyRoom": {
+      "type": "durable-object",
+      "storage": "sqlite"
+    }
+  },
+  "vars": {
+    "ALLOWED_ORIGINS": "https://ben-mcgrath-dev.github.io,http://localhost:8000,http://127.0.0.1:8000"
+  }
+}

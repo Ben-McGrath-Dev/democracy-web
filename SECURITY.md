@@ -1,39 +1,65 @@
-# Security model
+# Democracy Web Security
 
-Democracy Web is a static peer-to-peer application. GitHub Pages/HTTPS is the intended production environment.
+## Production architecture
 
-## Production mode
+Democracy Web 1.1 uses a static browser frontend plus a Cloudflare Worker and SQLite-backed Durable Objects for multiplayer.
 
-On a secure context (`https://` or localhost), Democracy Web enables Web Crypto identities, signed actions, sealed ballots, ballot recovery encryption, integrity hashes and service-worker/PWA support.
+The old production WebRTC/P2P transport, Trystero runtime dependency, Nostr signaling, TURN configuration and Lobby Owner peer-authority system have been retired.
+
+## Player identity
+
+Players use ECDSA P-256 identities. Secure private signing keys are non-extractable Web Crypto keys stored through IndexedDB. Private keys are never included in Democracy saves or Cloud room state.
+
+## Signed Cloud actions
+
+Every official online mutation is submitted as a player-signed action containing the room, player identity, expected state version and replay nonce.
+
+The Durable Object verifies:
+
+- registered public key / player binding;
+- signature;
+- replay nonce;
+- expected state version;
+- political permission/authorization;
+- deterministic reducer transition.
+
+It then persists and broadcasts an ordered commit.
+
+Clients independently verify:
+
+- player signature;
+- authorization result;
+- previous commit hash;
+- commit hash;
+- deterministic transition seed/time;
+- resulting state version and state hash.
+
+A Cloud server cannot produce a valid signed action for another player without that player's private key.
+
+## Trust boundary
+
+Cloudflare remains trusted for availability, connection routing and sequencing. A malicious or compromised sequencer could censor/delay messages or choose an ordering between simultaneously valid actions. Clients detect forged player actions or state transitions, but cannot force the service to deliver data.
+
+## Recovery
+
+Reconnects resume from the last locally verified commit when possible. The Worker validates the claimed commit head before sending a delta. Larger gaps recover from immutable chunked SQLite snapshots plus later signed commits. Snapshot hashes and final commit heads are verified by the client.
+
+## Canonical time
+
+Multiplayer deadline validation uses the Durable Object's accepted timestamp rather than a player's local clock.
+
+## Web security
+
+Production multiplayer requires HTTPS. Plain HTTP Cloud backends are accepted only for localhost development. The frontend Content Security Policy permits self-hosted scripts only; no runtime JavaScript CDN is required by multiplayer.
+
+The Worker restricts browser origins using `ALLOWED_ORIGINS` in `wrangler.jsonc`. This is defense in depth and does not replace cryptographic authentication.
+
+## Secret ballots
+
+Sealed ballot ciphertext is stored in canonical state; the ballot-box private key is not replicated through normal shared state. Password-protected ballot recovery packages use PBKDF2 + AES-GCM.
+
+Known limitation: the browser holding the ballot-box private key can technically decrypt ballots before close. Strong threshold/mix-net secrecy remains future work.
 
 ## LAN Test Mode
 
-Plain HTTP on private LAN addresses (for example `http://192.168.x.x:8000`) cannot use `crypto.subtle` in normal browsers. Democracy Web therefore enters an explicitly marked **LAN Test Mode**. This mode is for multi-device development only:
-
-- player/action proofs use a deliberately non-secure development fallback;
-- sealed ballot encryption and encrypted ballot recovery are disabled;
-- the UI displays a persistent warning;
-- LAN Test identities are not importable as production credentials.
-
-Do not use LAN Test Mode for a real competitive game.
-
-## Abuse limits
-
-The network layer rejects oversized actions and oversized incoming canonical states, validates player identity/permissions, rejects stale authority/state versions, rejects replayed signed nonces, and limits user-facing names/text lengths where appropriate.
-
-## Reporting
-
-Do not commit real exported player identity files, ballot recovery packages, or private credentials to the repository.
-
-## 1.0.3 security model update
-Online political mutations are replicated as signed deterministic transitions. A Lobby Owner sequences actions but connected peers independently verify the actor signature, permissions, prior state version, authority epoch and resulting canonical state hash before accepting each transition. A modified Lobby Owner can no longer silently overwrite the state of already-connected honest peers.
-
-Lobby migration control messages are identity-signed and claims must advance exactly one epoch and come from the deterministic eligible successor after loss of the current owner.
-
-Secure-context player signing keys are stored as non-extractable Web Crypto keys in IndexedDB. Raw identity export is intentionally disabled in 1.0.3. Legacy 1.0.2 identity files can still be imported once and are converted to the non-extractable storage format.
-
-Secret ballot caveat: 1.0.3 removes replicated ballot-box private keys and shuffles revealed plaintext choices before they enter shared state, reducing envelope-to-choice correlation by the transport owner. The browser that holds the ballot-box private key can still technically decrypt ballots early, and collusion between that holder and a transport peer that logged sender/envelope correlation can weaken anonymity. Strong threshold/mix-net ballot secrecy remains future work.
-
-Initial-join protection: first-time joins require a pinned Lobby Owner identity fingerprint. Full invite links carry it automatically; a manual room-code join must provide the 64-character fingerprint out-of-band. Reconnect sessions retain the previously trusted owner fingerprint.
-
-Supply-chain caveat: Trystero 0.25.4 is version-pinned but 1.0.3 still loads it from a runtime CDN provider. Vendoring/bundling the exact dependency locally remains required to remove that remaining high-severity supply-chain exposure.
+Plain HTTP on private LAN addresses is development-only. Insecure LAN identities must not be used for Cloud multiplayer. Use HTTPS or localhost when testing cryptographic multiplayer.
