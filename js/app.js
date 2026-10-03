@@ -624,7 +624,7 @@ function relayHealthPanel(signaling = {}) {
     ? `${signaling.open ?? 0}/${rows.length} connected${signaling.unavailable ? ` · ${signaling.unavailable} unavailable` : ''}`
     : 'Starting…';
   const body = rows.map(relay => {
-    const host = String(relay.url || '').replace(/^wss?:\\/\\//, '').replace(/\\/$/, '');
+    const host = String(relay.url || '').replace(/^wss?:\/\//, '').replace(/\/$/, '');
     const statusClass = relay.status === 'connected' ? 'status-active' : (relay.status === 'retrying' ? 'status-inactive' : 'status-error');
     const reason = relay.lastFailureReason || 'None';
     const failureTime = relay.lastFailureAt ? formatDateTime(relay.lastFailureAt) : '—';
