@@ -655,15 +655,15 @@ function cloudMultiplayerCard(state) {
     if (invite) sessionHtml += `<section class="section notice"><strong>Invite</strong><div class="field"><label>Cloud invite link</label><input readonly value="${escapeHtml(invite)}"></div><div class="btn-row"><button class="btn btn-primary" data-action="copy-cloud-invite">Copy Invite Link</button><button class="btn" data-action="copy-cloud-room">Copy Room Code</button></div><p class="muted">The invite includes the room code and Cloud backend address. Player identity is still verified cryptographically after connection.</p></section>`;
     sessionHtml += `<div class="btn-row"><button class="btn btn-danger" data-action="cloud-leave">Disconnect Cloud</button></div>`;
   } else {
-    sessionHtml = `<div class="grid grid-2"><article class="notice"><strong>Publish current save to Cloud</strong><p>Creates a Durable Object room from the current verified save. Political state and history are preserved; obsolete P2P transport metadata is normalised.</p><div class="field"><label>Optional room code</label><input id="cloudCreateRoom" maxlength="6" placeholder="Leave blank to generate"></div><button class="btn btn-primary" data-action="cloud-create" ${state&&creator?'':'disabled'}>Publish & Connect</button></article><article class="notice"><strong>Join Cloud room</strong><p>Existing players are recognised by their signing key. New identities authenticate first, then request approval.</p><div class="field"><label>Room code</label><input id="cloudJoinRoom" maxlength="6" value="${escapeHtml(new URL(location.href).searchParams.get('room')||'')}" placeholder="ABC234"></div><button class="btn" data-action="cloud-connect">Connect</button></article></div>`;
+    sessionHtml = `<div class="grid grid-2"><article class="notice"><strong>Publish current save to Cloud</strong><p>Creates a Durable Object room from the current verified save. Political state and history are preserved; obsolete P2P transport metadata is normalised.</p><div class="field"><label>Optional room code</label><input id="cloudCreateRoom" maxlength="6" placeholder="Leave blank to generate"></div><button class="btn btn-primary" type="button" data-action="cloud-create" ${state&&creator?'':'disabled'}>Publish & Connect</button></article><article class="notice"><strong>Join Cloud room</strong><p>Existing players are recognised by their signing key. New identities authenticate first, then request approval.</p><div class="field"><label>Room code</label><input id="cloudJoinRoom" maxlength="6" value="${escapeHtml(new URL(location.href).searchParams.get('room')||'')}" placeholder="ABC234"></div><button class="btn" type="button" data-action="cloud-connect">Connect</button></article></div>`;
   }
 
   return `<section class="section card"><div class="section-header compact-header"><div><span class="page-kicker">Democracy Web 1.1</span><h2>Cloud Multiplayer</h2><p class="muted">Cloudflare Durable Objects are now the production multiplayer transport. Signed actions, deterministic client verification, durable snapshots, and automatic reconnect replace the former WebRTC/P2P stack.</p></div><span class="status ${connected?'status-active':cloud.connection==='error'?'status-error':'status-inactive'}">${escapeHtml(statusLabel)}</span></div>
     <div class="form-grid">
-      <div class="field"><label for="cloudApiBase">Cloud backend URL</label><input id="cloudApiBase" value="${escapeHtml(settings.apiBase)}" placeholder="https://your-worker.workers.dev"><small class="muted">For local development use <code>http://localhost:8787</code>. Production invite links carry this backend address automatically.</small></div>
+      <div class="field"><label for="cloudApiBase">Cloud backend URL</label><input id="cloudApiBase" value="${escapeHtml(settings.apiBase)}" placeholder="https://your-worker.workers.dev" autocomplete="url"><small class="muted">Saved in this browser. For local development use <code>http://localhost:8787</code>; production defaults to the deployed Democracy Web Worker.</small></div>
       ${sessionHtml}
       ${cloud.lastError ? `<div class="notice danger"><strong>Cloud error</strong><p>${escapeHtml(cloud.lastError)}</p></div>` : ''}
-      <div class="btn-row"><button class="btn" data-action="cloud-save-settings">Save Backend URL</button></div>
+      <div class="btn-row"><button type="button" class="btn" data-action="cloud-save-settings">Save Backend URL</button><span id="cloudBackendSavedStatus" class="muted" aria-live="polite">Saved in this browser</span></div>
     </div>
   </section>`;
 }
@@ -856,6 +856,29 @@ document.addEventListener('route:rendered', event => {
   }
 });
 
+document.addEventListener('change', event => {
+  if (event.target?.id !== 'cloudApiBase') return;
+  try {
+    const saved = setCloudSettings({ enabled: true, apiBase: event.target.value });
+    event.target.value = saved.apiBase;
+    const label = document.querySelector('#cloudBackendSavedStatus');
+    if (label) label.textContent = 'Saved in this browser ✓';
+  } catch (error) { toast(error.message, 'error'); }
+});
+
+document.addEventListener('keydown', event => {
+  if (event.target?.id !== 'cloudApiBase' || event.key !== 'Enter') return;
+  event.preventDefault();
+  try {
+    const saved = setCloudSettings({ enabled: true, apiBase: event.target.value });
+    event.target.value = saved.apiBase;
+    event.target.blur();
+    const label = document.querySelector('#cloudBackendSavedStatus');
+    if (label) label.textContent = 'Saved in this browser ✓';
+    toast('Cloud backend URL saved in this browser');
+  } catch (error) { toast(error.message, 'error'); }
+});
+
 document.addEventListener('click', async event => {
   const element = event.target.closest('[data-action]');
   const action = element?.dataset.action;
@@ -972,9 +995,12 @@ Cloud room: ${cloud.roomCode}`:''}`,url:link}); return;
 
   if (action === 'cloud-save-settings') {
     try {
-      setCloudSettings({ enabled: true, apiBase: document.querySelector('#cloudApiBase')?.value || '' });
-      toast('Cloud multiplayer settings saved');
-      renderCurrentRoute();
+      const saved = setCloudSettings({ enabled: true, apiBase: document.querySelector('#cloudApiBase')?.value || '' });
+      const input = document.querySelector('#cloudApiBase');
+      if (input) input.value = saved.apiBase;
+      const label = document.querySelector('#cloudBackendSavedStatus');
+      if (label) label.textContent = 'Saved in this browser ✓';
+      toast('Cloud backend URL saved in this browser');
     } catch (error) { toast(error.message, 'error'); }
     return;
   }

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 const read = p => fs.readFileSync(new URL(p, import.meta.url), 'utf8');
 const html=read('../index.html'), app=read('../js/app.js'), responsive=read('../css/responsive.css'), main=read('../css/main.css'), config=read('../js/config.js');
 const checks=[
- ['Phase 23+ version',/APP_VERSION\s*=\s*'(?:1\.[1-9]\.0(?:-phase\d+)?|1\.0\.[0-9]+|0\.(?:2[3-9]|[3-9]\d)\.)/.test(config)],
+ ['Phase 23+ version',/APP_VERSION\s*=\s*'(?:1\.[1-9]\.[0-9]+(?:-phase\d+)?|1\.0\.[0-9]+|0\.(?:2[3-9]|[3-9]\d)\.)/.test(config)],
  ['Desktop sidebar',html.includes('class="sidebar"')&&html.includes('class="side-nav"')],
  ['Mobile bottom dock',html.includes('class="mobile-dock"')],
  ['Mobile full menu',html.includes('id="mobileMenu"')&&app.includes('setMobileMenu')],

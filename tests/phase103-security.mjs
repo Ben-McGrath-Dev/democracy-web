@@ -10,7 +10,7 @@ const permissions = read('shared/permissions.js');
 const app = read('js/app.js');
 const config = read('js/config.js');
 
-assert.match(config, /APP_VERSION = '(?:1\.1\.0(?:-phase\d+)?|1\.0\.[34])'/);
+assert.match(config, /APP_VERSION = '(?:1\.1\.[0-9]+(?:-phase\d+)?|1\.0\.[34])'/);
 // Critical authority path: legacy P2P checks remain historical; 1.1 must use signed Cloud sequencing instead.
 if (legacyP2P) {
   assert.match(network, /verifySignedControl\(packet, 'authority-claim'/);

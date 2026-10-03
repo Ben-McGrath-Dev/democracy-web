@@ -23,7 +23,7 @@ const checks = [
   [network.includes("bestRecoveryState"), 'newest-state recovery selection'],
   [app.includes("set-backup-owner"), 'backup owner UI'],
   [app.includes("resumeOnlineSession"), 'automatic refresh reconnect'],
-  [/APP_VERSION\s*=\s*'(?:1\.[1-9]\.0(?:-phase\d+)?|1\.0\.[0-9]+|0\.(?:1[7-9]|2[0-9]|[3-9][0-9])\.0-phase(?:1[7-9]|2[0-9]|[3-9][0-9]))'/.test(config), 'phase 17 version']
+  [/APP_VERSION\s*=\s*'(?:1\.[1-9]\.[0-9]+(?:-phase\d+)?|1\.0\.[0-9]+|0\.(?:1[7-9]|2[0-9]|[3-9][0-9])\.0-phase(?:1[7-9]|2[0-9]|[3-9][0-9]))'/.test(config), 'phase 17 version']
 ];
 for (const [ok, name] of checks) {
   if (!ok) throw new Error(`FAIL: ${name}`);

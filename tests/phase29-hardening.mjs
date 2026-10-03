@@ -9,7 +9,7 @@ const secret=fs.readFileSync('js/secret-ballots.js','utf8');
 const html=fs.readFileSync('index.html','utf8');
 const storage=fs.readFileSync('js/storage.js','utf8');
 const config=fs.readFileSync('js/config.js','utf8');
-assert.match(config,/(?:1\.[1-9]\.0(?:-phase\d+)?|1\.0\.[0-9]+|0\.30\.0-phase30)/);
+assert.match(config,/(?:1\.[1-9]\.[0-9]+(?:-phase\d+)?|1\.0\.[0-9]+|0\.30\.0-phase30)/);
 assert.match(html,/Content-Security-Policy/);
 assert.match(html,/securityBanner/);
 assert.match(security,/lan-test/);

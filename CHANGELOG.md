@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.1 — Cloud backend persistence hotfix
+
+- Cloud Worker URL is now stored in a dedicated browser-local cache key as well as the versioned Cloud settings record.
+- Backend URL automatically persists on field change or Enter; saving no longer rerenders the Multiplayer page.
+- Production fallback now points to the deployed Democracy Web Worker, while localhost frontends still default to `http://localhost:8787`.
+- Cloud action buttons explicitly use `type="button"` to prevent accidental form submission.
+- Invite-provided Cloud backend URLs continue to be validated and persisted automatically.
+
 ## 1.1.0-phase43 — Cloud reconnect/resume + save migration
 
 - Added remembered Cloud sessions with automatic reconnect after network loss, page sleep/wake and browser focus restoration.

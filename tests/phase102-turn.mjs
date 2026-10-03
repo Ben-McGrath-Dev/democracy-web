@@ -11,7 +11,7 @@ const app = await fs.readFile(new URL('../js/app.js', import.meta.url), 'utf8');
 const config = await fs.readFile(new URL('../js/config.js', import.meta.url), 'utf8');
 
 const checks = [
-  ['version 1.0.2+', /APP_VERSION = '(?:1\.[1-9]\.0(?:-phase\d+)?|1\.0\.[2-9][0-9]*)'/.test(config)],
+  ['version 1.0.2+', /APP_VERSION = '(?:1\.[1-9]\.[0-9]+(?:-phase\d+)?|1\.0\.[2-9][0-9]*)'/.test(config)],
   ['turnConfig passed to Trystero', network.includes('config.turnConfig')],
   ['relay-only ICE test', network.includes("iceTransportPolicy: 'relay'")],
   ['local TURN settings', network.includes('democracy-web.turn-settings.v1')],

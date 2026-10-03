@@ -16,7 +16,7 @@ assert.match(worker, /acceptWebSocket/);
 assert.match(worker, /webSocketMessage/);
 assert.match(worker, /webSocketClose/);
 assert.match(worker, /ctx\.storage\.sql/);
-assert.match(pkg.version, /^1\.1\.0(?:-phase\d+)?$/);
+assert.match(pkg.version, /^1\.1\.[0-9]+(?:-phase\d+)?$/);
 assert.ok(pkg.scripts['cloud:dev']);
 assert.ok(pkg.scripts['cloud:deploy']);
 assert.equal(CLOUD_PROTOCOL_VERSION, 1);

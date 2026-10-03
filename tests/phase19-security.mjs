@@ -18,7 +18,7 @@ const checks=[
   [legacyP2P ? network.includes('identityFingerprint') : cloud.includes('fingerprint'),'player fingerprint binding'],
   [storage.includes('stateHash') && storage.includes('eventHeadHash'),'snapshot/export integrity hashes'],
   [app.includes('export-identity') && app.includes('import-identity'),'identity management UI'],
-  [/APP_VERSION\s*=\s*'(?:1\.[1-9]\.0(?:-phase\d+)?|1\.0\.[0-9]+|0\.(?:1[9]|2[0-9]|[3-9][0-9])\.0-phase(?:1[9]|2[0-9]|[3-9][0-9]))'/.test(config),'Phase 19 version']
+  [/APP_VERSION\s*=\s*'(?:1\.[1-9]\.[0-9]+(?:-phase\d+)?|1\.0\.[0-9]+|0\.(?:1[9]|2[0-9]|[3-9][0-9])\.0-phase(?:1[9]|2[0-9]|[3-9][0-9]))'/.test(config),'Phase 19 version']
 ];
 for(const [ok,name] of checks){if(!ok)throw new Error(`FAIL: ${name}`);console.log(`PASS: ${name}`);}
 

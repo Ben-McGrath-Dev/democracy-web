@@ -9,7 +9,9 @@ import { estimateCloudClock, cloudNow } from '../shared/cloud-time.js';
 import { ensureIdentity, signPayload } from './identity.js';
 import { getState, loadState } from './state.js';
 
-const SETTINGS_KEY = 'democracy-web.cloud-backend.v1';
+const SETTINGS_KEY = 'democracy-web.cloud-backend.v2';
+const LEGACY_SETTINGS_KEY = 'democracy-web.cloud-backend.v1';
+const SETTINGS_URL_KEY = 'democracy-web.cloud-backend-url';
 const SESSION_KEY = 'democracy-web.cloud-session.v1';
 const RECONNECT_DELAYS_MS = [1000, 2000, 4000, 8000, 15000, 30000];
 const listeners = new Set();
@@ -58,12 +60,33 @@ function emit() { const snap = getCloudStatus(); for (const fn of listeners) { t
 function setStatus(patch) { status = { ...status, ...patch }; emit(); }
 function cloneRequests(value) { return (value || []).map(item => ({ ...item, publicJwk: item.publicJwk ? structuredClone(item.publicJwk) : null })); }
 
+function browserDefaultCloudBackend() {
+  try {
+    if (typeof location !== 'undefined' && ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)) {
+      return 'http://localhost:8787';
+    }
+  } catch {}
+  return CLOUD_BACKEND.apiBase;
+}
+
+function normalizeCloudBackendUrl(value) {
+  let text = String(value ?? '').trim();
+  const markdown = text.match(/^\[https?:\/\/[^\]]+\]\((https?:\/\/[^)]+)\)$/i);
+  if (markdown) text = markdown[1];
+  return text.replace(/\/$/, '');
+}
+
 export function getCloudSettings() {
   let saved = {};
-  try { saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') || {}; } catch {}
+  let cachedUrl = '';
+  try {
+    cachedUrl = normalizeCloudBackendUrl(localStorage.getItem(SETTINGS_URL_KEY) || '');
+    saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || localStorage.getItem(LEGACY_SETTINGS_KEY) || '{}') || {};
+  } catch {}
+  const apiBase = normalizeCloudBackendUrl(cachedUrl || saved.apiBase || browserDefaultCloudBackend());
   return {
     enabled: saved.enabled ?? CLOUD_BACKEND.enabled,
-    apiBase: String(saved.apiBase || CLOUD_BACKEND.apiBase).replace(/\/$/, '')
+    apiBase
   };
 }
 
@@ -71,14 +94,21 @@ export function setCloudSettings(next = {}) {
   const current = getCloudSettings();
   const merged = {
     enabled: next.enabled ?? current.enabled,
-    apiBase: String(next.apiBase ?? current.apiBase).trim().replace(/\/$/, '')
+    apiBase: normalizeCloudBackendUrl(next.apiBase ?? current.apiBase)
   };
   if (!/^https?:\/\//i.test(merged.apiBase)) throw new Error('Cloud backend URL must start with http:// or https://.');
   const parsed = new URL(merged.apiBase);
   const localDev = ['localhost', '127.0.0.1', '[::1]'].includes(parsed.hostname);
   if (parsed.protocol !== 'https:' && !localDev) throw new Error('Production Cloud backends must use HTTPS. Plain HTTP is allowed only for localhost development.');
   merged.enabled = true;
+  // Persist the URL independently as well as in the settings object. This makes the
+  // backend selection robust across rerenders, reloads, upgrades from v1 settings,
+  // and a partially-corrupted JSON settings record.
+  localStorage.setItem(SETTINGS_URL_KEY, merged.apiBase);
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(merged));
+  // Keep the legacy key updated during the 1.1.x transition so older cached tabs do
+  // not overwrite the new selection with localhost on their next render.
+  localStorage.setItem(LEGACY_SETTINGS_KEY, JSON.stringify(merged));
   return merged;
 }
 

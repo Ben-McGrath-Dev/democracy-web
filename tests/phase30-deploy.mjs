@@ -5,7 +5,7 @@ const workflow=fs.readFileSync('.github/workflows/pages.yml','utf8');
 assert.match(workflow,/actions\/deploy-pages@v4/);
 assert.match(workflow,/actions\/upload-pages-artifact@v4/);
 const sw=fs.readFileSync('sw.js','utf8');
-assert.match(sw,/(?:democracy-web-v1[01]0(?:-phase\d+)?|democracy-web-v10[0-9]+|democracy-web-v0\.30)/);
+assert.match(sw,/(?:democracy-web-v1[0-9]{2}(?:-phase\d+)?|democracy-web-v10[0-9]+|democracy-web-v0\.30)/);
 assert.match(sw,/\.\/js\/security\.js/);
 const readme=fs.readFileSync('README.md','utf8');
 assert.match(readme,/Production deployment/);

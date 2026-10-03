@@ -1,3 +1,7 @@
+# Democracy Web 1.1.1 — Cloud backend persistence hotfix
+
+The configured Cloudflare Worker URL is now saved persistently in the browser and restored on reload. The production fallback for this deployment is `https://democracy-web-cloud.ben-mcgrath-dev.workers.dev`; local frontend development still falls back to `http://localhost:8787` when no browser override has been saved.
+
 # Democracy Web 1.1.0 — Cloud Multiplayer Cutover
 
 Version 1.1 replaces the production WebRTC/P2P transport with Cloudflare Durable Objects and WebSockets.

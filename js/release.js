@@ -36,7 +36,7 @@ export function releaseReadiness(state, cloudStatus = {}) {
   const offline = state ? offlineReadiness(state) : null;
   const cloudReady = !cloudStatus.roomCode || (cloudStatus.authenticated && cloudStatus.stateSynced && cloudStatus.connection === 'connected');
   return [
-    { label: 'Stable 1.1 build', ok: APP_VERSION === '1.1.0', detail: `v${APP_VERSION} · ${RELEASE_CHANNEL}` },
+    { label: 'Stable 1.1 build', ok: /^1\.1\./.test(APP_VERSION), detail: `v${APP_VERSION} · ${RELEASE_CHANNEL}` },
     { label: 'Secure production context', ok: security.mode === 'secure', detail: security.mode === 'secure' ? 'Full cryptographic features available' : `${security.mode} — acceptable for development only` },
     { label: 'Official history integrity', ok: history.ok, detail: state ? `${history.count} chained event(s)` : 'No save loaded' },
     { label: 'Current state integrity', ok: !audit || audit.errors === 0, detail: audit ? `${audit.errors} error(s), ${audit.warnings} warning(s)` : 'No save loaded' },

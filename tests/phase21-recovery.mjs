@@ -9,7 +9,7 @@ const ballots = read('../js/secret-ballots.js');
 const config = read('../js/config.js');
 const html = read('../index.html');
 const checks = [
-  ['Phase 21+ version', /(?:1\.[1-9]\.0(?:-phase\d+)?|1\.0\.[0-9]+|0\.(2[1-9]|[3-9][0-9])\.0-phase)/.test(config)],
+  ['Phase 21+ version', /(?:1\.[1-9]\.[0-9]+(?:-phase\d+)?|1\.0\.[0-9]+|0\.(2[1-9]|[3-9][0-9])\.0-phase)/.test(config)],
   ['Recovery navigation', html.includes('data-route="recovery"')],
   ['Recovery route', app.includes("registerRoute('recovery', recoveryPage)" )],
   ['Manual full resync', legacyP2P ? net.includes('export function requestFullResync') : net.includes('export function requestCloudResync')],
