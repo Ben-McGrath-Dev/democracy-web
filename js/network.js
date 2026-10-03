@@ -55,6 +55,13 @@ const RATE_WINDOW_MS = 10000;
 const MAX_ACTIONS_PER_WINDOW = 40;
 const MAX_JOINS_PER_WINDOW = 8;
 
+const relayHealth = new Map();
+const relaySocketBindings = new WeakSet();
+let relayHealthTimer = null;
+const RELAY_RETRY_BASE_MS = 1500;
+const RELAY_RETRY_MAX_MS = 60000;
+const RELAY_UNAVAILABLE_AFTER = 5;
+
 const TURN_SETTINGS_KEY = 'democracy-web.turn-settings.v1';
 
 function cleanTurnUrls(value) {
@@ -102,6 +109,144 @@ const SIGNALING_RELAYS = [
   'wss://relay.agorist.space',
   'wss://yabu.me/v2'
 ];
+
+
+function relayRetryDelay(failures = 1) {
+  return Math.min(RELAY_RETRY_MAX_MS, RELAY_RETRY_BASE_MS * (2 ** Math.max(0, failures - 1)));
+}
+
+function websocketCloseReason(event) {
+  const code = Number(event?.code || 0);
+  const reason = String(event?.reason || '').trim();
+  if (reason) return `${code || 'close'} · ${reason}`;
+  if (code === 1000) return '1000 · normal closure';
+  if (code === 1001) return '1001 · endpoint going away';
+  if (code === 1006 || !code) return '1006 · abnormal closure / network failure';
+  return `${code} · WebSocket closed`;
+}
+
+function ensureRelayRecord(url) {
+  if (!relayHealth.has(url)) {
+    relayHealth.set(url, {
+      url,
+      status: 'retrying',
+      failures: 0,
+      lastFailureReason: null,
+      lastFailureAt: null,
+      nextRetryAt: null,
+      connectedAt: null,
+      lastStateChangeAt: Date.now()
+    });
+  }
+  return relayHealth.get(url);
+}
+
+function markRelayFailure(url, reason) {
+  const rec = ensureRelayRecord(url);
+  const failures = (rec.failures || 0) + 1;
+  const now = Date.now();
+  Object.assign(rec, {
+    failures,
+    status: failures >= RELAY_UNAVAILABLE_AFTER ? 'unavailable' : 'retrying',
+    lastFailureReason: reason || 'Connection failed',
+    lastFailureAt: now,
+    nextRetryAt: now + relayRetryDelay(failures),
+    lastStateChangeAt: now
+  });
+}
+
+function bindRelaySocket(url, socket) {
+  if (!socket || relaySocketBindings.has(socket)) return;
+  relaySocketBindings.add(socket);
+  const rec = ensureRelayRecord(url);
+  rec.status = socket.readyState === 1 ? 'connected' : 'retrying';
+  rec.lastStateChangeAt = Date.now();
+  if (socket.readyState === 1) {
+    rec.connectedAt = Date.now();
+    rec.nextRetryAt = null;
+  }
+  socket.addEventListener?.('open', () => {
+    const row = ensureRelayRecord(url);
+    Object.assign(row, {
+      status: 'connected',
+      failures: 0,
+      connectedAt: Date.now(),
+      nextRetryAt: null,
+      lastStateChangeAt: Date.now()
+    });
+    emit();
+  });
+  socket.addEventListener?.('error', () => {
+    const row = ensureRelayRecord(url);
+    if (!row.lastFailureAt || Date.now() - row.lastFailureAt > 300) {
+      markRelayFailure(url, 'WebSocket connection error');
+    }
+    emit();
+  });
+  socket.addEventListener?.('close', event => {
+    const row = ensureRelayRecord(url);
+    const reason = websocketCloseReason(event);
+    if (!row.lastFailureAt || Date.now() - row.lastFailureAt > 300 || row.lastFailureReason !== reason) {
+      markRelayFailure(url, reason);
+    }
+    emit();
+  });
+}
+
+function refreshRelayHealth() {
+  const sockets = importedModule?.getRelaySockets?.() ?? {};
+  const now = Date.now();
+  for (const url of SIGNALING_RELAYS) {
+    const rec = ensureRelayRecord(url);
+    const socket = sockets[url];
+    if (socket) {
+      bindRelaySocket(url, socket);
+      if (socket.readyState === 1) {
+        rec.status = 'connected';
+        rec.failures = 0;
+        rec.connectedAt ||= now;
+        rec.nextRetryAt = null;
+      } else if (socket.readyState === 0) {
+        rec.status = 'retrying';
+        rec.nextRetryAt = now;
+      } else if (rec.nextRetryAt && now >= rec.nextRetryAt && rec.failures < RELAY_UNAVAILABLE_AFTER) {
+        rec.status = 'retrying';
+      }
+    } else if (role !== 'offline') {
+      if (!rec.lastFailureAt && now - rec.lastStateChangeAt > 8000) {
+        rec.status = 'unavailable';
+        rec.lastFailureReason = 'No relay socket was established';
+        rec.lastFailureAt = now;
+        rec.nextRetryAt = now + relayRetryDelay(1);
+      } else if (rec.nextRetryAt && now >= rec.nextRetryAt) {
+        rec.status = rec.failures >= RELAY_UNAVAILABLE_AFTER ? 'unavailable' : 'retrying';
+      }
+    }
+  }
+}
+
+function relayHealthSignature() {
+  return SIGNALING_RELAYS.map(url => {
+    const r = ensureRelayRecord(url);
+    return `${url}|${r.status}|${r.failures}|${r.lastFailureReason || ''}|${r.nextRetryAt || ''}|${r.connectedAt || ''}`;
+  }).join('\n');
+}
+
+function startRelayHealthMonitor() {
+  if (relayHealthTimer) return;
+  for (const url of SIGNALING_RELAYS) ensureRelayRecord(url);
+  refreshRelayHealth();
+  relayHealthTimer = setInterval(() => {
+    const before = relayHealthSignature();
+    refreshRelayHealth();
+    if (relayHealthSignature() !== before) emit();
+  }, 1000);
+}
+
+function stopRelayHealthMonitor() {
+  if (relayHealthTimer) clearInterval(relayHealthTimer);
+  relayHealthTimer = null;
+}
 
 function trysteroRoomConfig() {
   const turn = readTurnSettings();
@@ -191,6 +336,7 @@ function clearTimers() {
 
 function cleanup({ forgetSession = false } = {}) {
   clearTimers();
+  stopRelayHealthMonitor();
   try { room?.leave?.(); } catch {}
   if (forgetSession && roomCode) localStorage.removeItem(sessionKey(roomCode));
   room = null;
@@ -220,6 +366,7 @@ function cleanup({ forgetSession = false } = {}) {
   seenControlNonces.clear();
   peerActionWindows.clear();
   peerJoinWindows.clear();
+  relayHealth.clear();
   emit();
 }
 
@@ -623,6 +770,7 @@ function beginMigration() {
 function setupRoom(r, selfId) {
   room = r;
   localPeerId = selfId;
+  startRelayHealthMonitor();
   actions.presence = room.makeAction('dw-presence-v2');
   actions.join = room.makeAction('dw-join-v2');
   actions.joinAck = room.makeAction('dw-join-ack-v3');
@@ -1063,16 +1211,28 @@ export function getLocalPlayerId() { return localPlayerId; }
 export function isOnlinePeer() { return role === 'peer'; }
 export function isOnlineOwner() { return role === 'owner'; }
 function signalingStatus() {
-  const sockets = importedModule?.getRelaySockets?.() ?? {};
-  const values = Object.values(sockets);
+  refreshRelayHealth();
+  const rows = SIGNALING_RELAYS.map(url => {
+    const rec = ensureRelayRecord(url);
+    return {
+      url,
+      status: rec.status,
+      failures: rec.failures || 0,
+      lastFailureReason: rec.lastFailureReason || null,
+      lastFailureAt: rec.lastFailureAt || null,
+      nextRetryAt: rec.nextRetryAt || null,
+      connectedAt: rec.connectedAt || null
+    };
+  });
   return {
     configured: SIGNALING_RELAYS.length,
-    observed: values.length,
-    open: values.filter(socket => socket?.readyState === 1).length,
-    connecting: values.filter(socket => socket?.readyState === 0).length
+    observed: rows.filter(r => r.connectedAt || r.lastFailureAt).length,
+    open: rows.filter(r => r.status === 'connected').length,
+    connecting: rows.filter(r => r.status === 'retrying').length,
+    unavailable: rows.filter(r => r.status === 'unavailable').length,
+    relays: rows
   };
 }
-
 export function getNetworkStatus() {
   const turn = readTurnSettings();
   return {

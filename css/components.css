@@ -19,3 +19,8 @@
 .security-banner[data-mode="unsupported"]{background:#fef2f2;color:#991b1b}
 .security-banner:not([hidden]) + .page-shell{padding-top:3.5rem}
 @media(max-width:900px){.security-banner{left:0;top:var(--mobile-header-height,64px);font-size:.85rem}.security-banner:not([hidden]) + .page-shell{padding-top:4.25rem}}
+
+/* 1.0.4 relay health panel */
+.status-error{color:var(--danger);background:var(--danger-soft);border-color:#fecdca}
+.relay-health-panel{overflow:hidden}.relay-health-panel .compact-header{margin-bottom:10px}.relay-health-row{display:grid;grid-template-columns:minmax(180px,1.2fr) auto minmax(260px,2fr) minmax(120px,.8fr);gap:10px 14px;align-items:center;padding:10px 0;border-top:1px solid var(--border)}.relay-health-row:first-of-type{border-top:0}.relay-health-main{display:flex;align-items:center;gap:8px;min-width:0}.relay-health-main code{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.relay-health-dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex:0 0 auto}.relay-health-dot.relay-connected{background:var(--success)}.relay-health-dot.relay-retrying{background:var(--warning)}.relay-health-dot.relay-unavailable{background:var(--danger)}.relay-health-meta{display:flex;flex-wrap:wrap;gap:5px 10px;font-size:.82rem;min-width:0}.relay-health-meta span:first-child{overflow-wrap:anywhere}.relay-health-retry{font-size:.82rem;font-weight:700;text-align:right}.relay-health-row .status{text-transform:capitalize}
+@media(max-width:760px){.relay-health-row{grid-template-columns:1fr auto}.relay-health-meta{grid-column:1/-1}.relay-health-retry{grid-column:1/-1;text-align:left}.relay-health-panel .section-header{gap:10px}.relay-health-panel .pill{align-self:flex-start}}

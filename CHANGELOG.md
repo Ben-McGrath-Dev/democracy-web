@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.0.4 — Secure first-join reliability
+- Added a compact per-relay health panel with connected/retrying/unavailable state, last failure details, and automatic retry timing.
 
 ### Signaling hotfix
 - Replaced Trystero's broad default Nostr relay pool with a smaller Democracy Web signaling list that excludes the repeatedly failing `nostr.tegila.com.br` endpoint.

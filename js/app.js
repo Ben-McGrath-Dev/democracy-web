@@ -612,6 +612,32 @@ function identityCard() {
   return `<section class="section card"><h2>Player Identity</h2><p class="muted">The signing key is held by this browser, not inside the Democracy save. Secure identities use a non-extractable Web Crypto key stored in IndexedDB.</p><dl class="kv"><dt>Algorithm</dt><dd>${escapeHtml(identity?.algorithm || 'ECDSA P-256 / SHA-256')}</dd><dt>Fingerprint</dt><dd><code>${escapeHtml(fp)}</code></dd><dt>Private key</dt><dd>${escapeHtml(identity?.privateKeyStorage || 'Not generated')}</dd><dt>Created</dt><dd>${identity?.createdAt ? escapeHtml(formatDateTime(identity.createdAt)) : '—'}</dd></dl><div class="btn-row"><button class="btn" data-action="generate-identity">${identity?'Verify Identity':'Generate Identity'}</button><button class="btn" data-action="import-identity">Import Legacy Identity</button></div><p class="muted"><strong>1.0.3 security change:</strong> raw private-key export is disabled for newly secured identities, preventing the signing key from being copied out of browser storage as plaintext JWK.</p></section>`;
 }
 
+function relayRetryLabel(nextRetryAt, status) {
+  if (status === 'connected') return 'Connected';
+  if (!nextRetryAt) return status === 'unavailable' ? 'Retry timing unavailable' : 'Retrying now';
+  return `<span data-relay-retry-at="${Number(nextRetryAt)}">Retrying…</span>`;
+}
+
+function relayHealthPanel(signaling = {}) {
+  const rows = signaling.relays ?? [];
+  const summary = rows.length
+    ? `${signaling.open ?? 0}/${rows.length} connected${signaling.unavailable ? ` · ${signaling.unavailable} unavailable` : ''}`
+    : 'Starting…';
+  const body = rows.map(relay => {
+    const host = String(relay.url || '').replace(/^wss?:\\/\\//, '').replace(/\\/$/, '');
+    const statusClass = relay.status === 'connected' ? 'status-active' : (relay.status === 'retrying' ? 'status-inactive' : 'status-error');
+    const reason = relay.lastFailureReason || 'None';
+    const failureTime = relay.lastFailureAt ? formatDateTime(relay.lastFailureAt) : '—';
+    return `<div class="relay-health-row">
+      <div class="relay-health-main"><span class="relay-health-dot relay-${escapeHtml(relay.status || 'retrying')}"></span><code title="${escapeHtml(relay.url || '')}">${escapeHtml(host)}</code></div>
+      <span class="status ${statusClass}">${escapeHtml(relay.status || 'retrying')}</span>
+      <div class="relay-health-meta"><span><strong>Last failure:</strong> ${escapeHtml(reason)}</span><span class="muted">${escapeHtml(failureTime)}</span></div>
+      <div class="relay-health-retry">${relayRetryLabel(relay.nextRetryAt, relay.status)}</div>
+    </div>`;
+  }).join('');
+  return `<section class="section card relay-health-panel"><div class="section-header compact-header"><div><h2>Signaling Relay Health</h2><p class="muted">Live status for the Nostr relay sockets Democracy Web is actually using. Individual relay failures do not stop multiplayer while other relays remain connected.</p></div><span class="pill">${escapeHtml(summary)}</span></div>${body || '<div class="empty">Relay sockets are starting…</div>'}</section>`;
+}
+
 function turnSettingsCard(connected = false) {
   const turn = getTurnSettings();
   const urls = (turn.urls ?? []).join('\n');
@@ -656,6 +682,7 @@ function multiplayerPage() {
     <div class="grid grid-4">${statCard(net.roomCode||'—','Room Code')}${statCard(net.connectedPeers.length,'Connected Peers')}${statCard(state?.stateVersion??'—','State Version')}${statCard(`#${net.authorityEpoch}`,'Authority Epoch')}</div>
     <section class="section grid grid-2"><article class="card"><h2>Invite</h2><div class="field"><label>Invite link</label><input id="inviteLink" readonly value="${escapeHtml(invite)}"></div><dl class="kv"><dt>Owner verification code</dt><dd><code>${escapeHtml(ownerVerifyCode)}</code></dd></dl><div class="btn-row"><button class="btn btn-primary" data-action="copy-invite-link">Copy Invite Link</button><button class="btn" data-action="copy-room-code">Copy Room Code</button><button class="btn" data-action="copy-owner-code">Copy Verification Code</button></div></article>
     <article class="card"><h2>Network Status</h2><dl class="kv"><dt>Connection</dt><dd>${escapeHtml(statusLabel)}</dd><dt>Local Peer ID</dt><dd><code>${escapeHtml(net.localPeerId||'—')}</code></dd><dt>Lobby Owner Peer</dt><dd><code>${escapeHtml(net.ownerPeerId||'migrating…')}</code></dd><dt>Lobby Owner Player</dt><dd>${escapeHtml(state?.players?.[net.ownerPlayerId]?.displayName||net.ownerPlayerId||'—')}</dd><dt>Local Player</dt><dd>${escapeHtml(localName||net.localPlayerId||'Waiting for join approval…')}</dd><dt>Signaling Relays</dt><dd>${net.signaling?.observed ? `${escapeHtml(String(net.signaling.open))}/${escapeHtml(String(net.signaling.observed))} connected${net.signaling.open ? (net.signaling.open < net.signaling.observed ? ' · degraded but usable' : '') : ' · connecting…'}` : 'Starting…'}</dd><dt>TURN Fallback</dt><dd>${net.turn?.configured ? `Configured (${escapeHtml(String(net.turn.urlCount))} URL${net.turn.urlCount===1?'':'s'})${net.turn.forceRelay?' · forced':''}` : 'Not configured'}</dd><dt>Last Error</dt><dd>${escapeHtml(net.lastError||'None')}</dd></dl></article></section>
+    ${relayHealthPanel(net.signaling)}
     ${net.connectionState==='awaiting-owner-trust' && net.discoveredOwner ? `<section class="section card"><h2>Verify Lobby Owner</h2>${net.discoveredOwnerConflict ? `<div class="notice"><strong>Conflicting identities detected</strong><p>More than one different identity answered this room code. Do not continue until the host gives you the full 64-character fingerprint.</p></div>` : `<p>A self-signed Lobby Owner identity was discovered. Before trusting it, compare this verification code with the host by voice, message, or in person.</p><div class="grid grid-2"><div><span class="page-kicker">Owner</span><h3>${escapeHtml(net.discoveredOwner.displayName||net.discoveredOwner.playerId||'Lobby Owner')}</h3></div><div><span class="page-kicker">Verification code</span><h3><code>${escapeHtml((net.discoveredOwner.fingerprint||'').slice(0,6).toUpperCase())}-${escapeHtml((net.discoveredOwner.fingerprint||'').slice(6,12).toUpperCase())}</code></h3></div></div><details><summary>Full fingerprint</summary><code class="break-all">${escapeHtml(net.discoveredOwner.fingerprint||'')}</code></details><div class="btn-row section"><button class="btn btn-primary" data-action="trust-discovered-owner">Code Matches — Trust & Join</button><button class="btn" data-action="leave-online-lobby">Cancel</button></div><p class="muted">This confirmation pins the cryptographic owner identity for future reconnects. If the code does not match, cancel.</p>`}</section>` : ''}
     ${turnSettingsCard(true)}
     ${identityCard()}
@@ -799,6 +826,18 @@ function queueAutosave(state) {
 
 subscribe(queueAutosave);
 subscribe(state => { refreshAttention(state, true); if (location.hash === '#notifications') renderCurrentRoute(); });
+function updateRelayRetryCountdowns() {
+  const now = Date.now();
+  document.querySelectorAll('[data-relay-retry-at]').forEach(node => {
+    const at = Number(node.dataset.relayRetryAt || 0);
+    if (!at) { node.textContent = 'Retry timing unavailable'; return; }
+    const ms = at - now;
+    if (ms <= 0) node.textContent = 'Retrying now';
+    else node.textContent = `Expected auto retry in ${Math.max(1, Math.ceil(ms / 1000))}s`;
+  });
+}
+setInterval(updateRelayRetryCountdowns, 1000);
+
 subscribeNetwork(() => { if (location.hash === '#multiplayer' || location.hash === '#recovery') renderCurrentRoute(); });
 window.addEventListener('network:action-rejected', e => toast(e.detail?.message || 'Online action rejected', 'error'));
 window.addEventListener('network:reconnected', () => toast('Reconnected as your existing player'));
