@@ -1747,105 +1747,13 @@ Historical versions must be preserved where reasonably possible.
 
 ---
 
-# PART XXVII — STARTING LAWS
+# PART XXVII — SAVE-SPECIFIC STARTING STATE
 
-## 86. Starting Law 1 — No Fraud [EDITABLE]
+The starting laws and first-game constitutional configuration are stored inside each Democracy save rather than in this static Rulebook.
 
-Players must not deliberately falsify:
+This allows the saved game to amend, repeal, replace and version those rules through the normal constitutional and legislative procedures without changing the Rulebook file itself.
 
-- votes;
-- election records;
-- committee records;
-- case evidence;
-- official Democracy records.
-
----
-
-## 87. Starting Law 2 — No Impersonation [EDITABLE]
-
-Players must not deliberately impersonate:
-
-- the Host;
-- Deputy Host;
-- another player;
-- a committee;
-- the government;
-- another official institution.
-
-Satire or parody that a reasonable participant would understand is not impersonation.
-
----
-
-## 88. Starting Law 3 — No Vote Interference [EDITABLE]
-
-Players must not deliberately prevent or materially interfere with another eligible player's legitimate ability to vote.
-
-Political persuasion is not vote interference.
-
----
-
-## 89. Starting Law 4 — No Serious Harassment [EDITABLE]
-
-Players must not use Democracy as a means of serious harassment, threats or targeted abuse.
-
-Ordinary political criticism, disagreement, satire and campaigning do not by themselves constitute serious harassment.
-
----
-
-## 90. Starting Law 5 — No Retaliation [EDITABLE]
-
-A player must not threaten or punish another player merely for exercising a constitutional political right.
-
-This does not prevent lawful political criticism or constitutionally authorised consequences for actual misconduct.
-
----
-
-# PART XXVIII — STARTING GAME CONFIGURATION
-
-## 91. First Election [EDITABLE]
-
-The first general election begins once:
-
-- there are at least 25 active players;
-- political party registration has been opened;
-- candidate lists have been published;
-- election rules have been announced.
-
-The first election determines:
-
-- legislature;
-- potential governing parties or lists;
-- subsequent government formation.
-
-The first general election uses proportional representation.
-
-It does **not** use ranked-choice voting.
-
----
-
-## 92. First Host and Deputy Host [EDITABLE]
-
-Before or alongside the first general election, players elect:
-
-- Host;
-- Deputy Host.
-
-If an original game organiser temporarily performs Host functions before the first Host election, those powers are administrative only.
-
----
-
-## 93. First Committee Elections [EDITABLE]
-
-The first committee elections elect:
-
-- AC;
-- PC;
-- PAC;
-- PPC.
-
-Committee size is determined by Section 58.
-
-Committee elections may occur alongside the first general election.
+The current save is the authoritative source for its starting laws and mutable starting constitutional provisions.
 
 ---
 

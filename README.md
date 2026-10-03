@@ -1,509 +1,46 @@
 # Democracy Web
 
-A browser-based multiplayer political simulation game built around elections, parties, governments, laws, committees, cases and constitutional politics.
+A browser-based multiplayer political simulation game for elections, parties, Parliament, governments, laws, constitutional amendments, committees, cases and political procedure.
 
-The goal is to turn **Democracy** from a manually managed WhatsApp game into a proper web application while keeping the social side of the game in places like WhatsApp or Discord.
+The website is intended to be the official mechanical/record-keeping layer while discussion, campaigns and coalition negotiations can remain in WhatsApp, Discord or another chat platform.
 
-The web app handles the official game state.
+## Current Status
 
-Players handle the politics.
+**Version:** `1.0.3`  
+**Milestone:** Stable security hardening
 
----
+The original Phase 0–33 roadmap is complete. Version 1.0.3 hardens multiplayer authority so online political state changes are signed deterministic transitions independently verified by every connected peer.
 
-## What is Democracy?
+Implemented systems include:
 
-Democracy is a multiplayer political simulation where players can:
+- local game creation and canonical action/state architecture
+- players, parties, Parliament, government, laws and Constitution
+- elections, committees, cases, juries and punishment
+- IndexedDB autosave, verified snapshots and save export/import
+- WebRTC P2P multiplayer with signed, peer-verifiable Lobby Owner sequencing
+- reconnect and automatic Lobby Owner migration
+- signed authority epochs and deterministic state-transition replication
+- persistent ECDSA player identities and signed peer actions
+- SHA-256 chained official event history
+- sealed RSA-OAEP/AES-GCM secret ballots
+- signed transition replay for secure resynchronisation
+- migration recovery-state rebroadcast
+- peer/state/authority diagnostics
+- verified snapshot restore with pre-restore safety snapshot
+- password-protected sealed-ballot key recovery packages
+- full Markdown rulebook and save-specific mutable Constitution
 
-- create political parties;
-- contest elections;
-- become members of the legislature;
-- form governments and coalitions;
-- become Prime Minister or a minister;
-- propose and vote on laws;
-- propose constitutional amendments;
-- participate in committees;
-- investigate alleged rule violations;
-- serve on juries;
-- challenge laws and administrative decisions;
-- remove governments or office-holders through constitutional procedures;
-- campaign, negotiate and debate with other players.
+## Run Locally
 
-The exact political system is defined by the game's Constitution.
+Do not open `index.html` directly with `file://` because browser security rules block JavaScript modules and data loading.
 
-The full Constitution is stored separately from this README so it can evolve without making the project documentation enormous.
-
----
-
-## Project Goals
-
-Democracy Web is designed around a few main principles.
-
-### Free to Host
-
-The game should be capable of running without a traditional paid multiplayer server.
-
-The website itself can be hosted as a static site, for example using GitHub Pages.
-
-### Peer-to-Peer Multiplayer
-
-Players connect directly to the lobby using browser networking such as WebRTC.
-
-One player acts as the current **Lobby Owner**, maintaining the authoritative game state and distributing updates to connected players.
-
-The Lobby Owner is a technical networking role and is completely separate from the constitutional **Host** role.
-
-A player may hold both roles, but they do not have to.
-
-### Persistent Games
-
-Political games may run for weeks or months.
-
-Game state should therefore be:
-
-- automatically saved locally;
-- replicated where practical;
-- recoverable if the Lobby Owner disconnects;
-- exportable to a file;
-- importable later.
-
-### Transparent Administration
-
-Important events should be recorded in a game history.
-
-Examples include:
-
-- elections opening;
-- elections closing;
-- laws being proposed;
-- legislative votes;
-- constitutional amendments;
-- government formation;
-- committee decisions;
-- case outcomes;
-- office changes.
-
-Private information such as secret ballots should not be exposed in the public event log.
-
----
-
-## Planned Architecture
-
-The project is intended to run primarily in the browser.
+On Windows, double-click:
 
 ```text
-GitHub Pages
-     │
-     │ serves HTML / CSS / JavaScript
-     ▼
-Player Browsers
-     │
-     │
-     ├──── WebRTC / P2P ────┐
-     │                      │
-     ▼                      ▼
-Lobby Owner             Other Players
-     │
-     ▼
-Authoritative Game State
+start.bat
 ```
 
-The website itself does not need a traditional application server for normal gameplay.
-
-Peer discovery/signalling may use decentralised or free infrastructure.
-
----
-
-## Lobby Owner vs Constitutional Host
-
-These are intentionally separate concepts.
-
-### Lobby Owner
-
-The Lobby Owner is the browser currently responsible for synchronising the multiplayer game.
-
-Responsibilities may include:
-
-- accepting connections;
-- maintaining the canonical game state;
-- validating incoming actions;
-- broadcasting state updates;
-- coordinating host migration.
-
-The Lobby Owner does **not** automatically receive any political power.
-
-### Constitutional Host
-
-The Host is an in-game office defined by the Constitution.
-
-The Host handles neutral administrative duties such as:
-
-- elections;
-- official records;
-- procedural administration;
-- result certification.
-
-A Lobby Owner may also be elected as Host, but neither role automatically grants the other.
-
----
-
-## Planned Features
-
-### Multiplayer
-
-- Create lobby
-- Join lobby using room code
-- Invite links
-- Player list
-- Reconnection
-- Lobby Owner migration
-- Network status
-
-### Players
-
-- Player profiles
-- Active/inactive status
-- Political roles
-- Office history
-
-### Political Parties
-
-- Create party
-- Join/leave party
-- Party leadership
-- Party descriptions
-- Electoral candidate lists
-
-### Elections
-
-- General elections
-- Host elections
-- Deputy Host elections
-- Committee elections
-- Ranked-choice voting
-- Proportional representation
-- Approval voting
-- Automatic counting
-
-### Legislature
-
-- Seats
-- MPs
-- Party representation
-- Bills
-- Legislative voting
-- Vote records
-
-### Government
-
-- Prime Minister
-- Ministers
-- Coalitions
-- Government formation
-- Votes of confidence
-- Votes of no confidence
-- Caretaker governments
-
-### Laws
-
-- Propose laws
-- Discussion period
-- Final proposal locking
-- Legislative votes
-- Referendums
-- Citizens' initiatives
-- Repeal and amendment
-- Law history
-
-### Constitution
-
-- Current Constitution
-- Constitutional amendments
-- Amendment voting
-- Protected/Base provisions
-- Version history
-- Constitutional changelog
-
-### Committees
-
-- Actions Committee
-- Punishment Committee
-- People's Actions Committee
-- People's Punishment Committee
-- Committee elections
-- Recusals
-- Alternates
-- Committee voting
-
-### Cases
-
-- Allegations
-- Evidence
-- PAC panels
-- Jury selection
-- Jury voting
-- PPC punishment
-- Case history
-
-### Records
-
-- Election history
-- Government history
-- Laws
-- Amendments
-- Committee decisions
-- Cases
-- Punishments
-- Public audit log
-
-### Saving
-
-- IndexedDB/local browser saves
-- Automatic snapshots
-- Export game
-- Import game
-- Recovery after disconnect
-
----
-
-## Suggested Technology
-
-The initial version can remain deliberately simple.
-
-- HTML
-- CSS
-- JavaScript
-- WebRTC
-- IndexedDB
-- GitHub Pages
-
-A lightweight peer-to-peer networking library may be used to simplify WebRTC room discovery and communication.
-
-The project should avoid requiring a permanent Node.js server unless it becomes necessary later.
-
----
-
-## Repository Structure
-
-A possible structure is:
-
-```text
-democracy-web/
-│
-├── index.html
-│
-├── README.md
-│
-├── LICENSE
-│
-│
-├── css/
-│   ├── main.css
-│   └── game.css
-│
-├── js/
-│   ├── app.js
-│   ├── lobby.js
-│   ├── network.js
-│   ├── state.js
-│   ├── storage.js
-│   ├── players.js
-│   ├── parties.js
-│   ├── elections.js
-│   ├── legislature.js
-│   ├── government.js
-│   ├── laws.js
-│   ├── committees.js
-│   ├── cases.js
-│   └── history.js
-│
-├── data/
-│   ├── constitution.json
-│   └── starting-laws.json
-│
-└── assets/
-```
-
-This structure will likely change as development continues.
-
----
-
-## Game State
-
-The game should have one canonical state object representing the current country.
-
-Conceptually:
-
-```js
-{
-    meta: {},
-    players: {},
-    parties: {},
-    legislature: {},
-    government: {},
-    elections: {},
-    votes: {},
-    laws: {},
-    constitution: {},
-    committees: {},
-    cases: {},
-    history: []
-}
-```
-
-The authoritative Lobby Owner updates this state and distributes changes to other connected clients.
-
-Clients should reject state updates that are older than their current state version.
-
----
-
-## Event History
-
-Important state changes should generate events.
-
-Example:
-
-```text
-#104  General election opened
-#105  Player joined
-#106  Ballot submitted
-#107  Ballot submitted
-#108  General election closed
-#109  Election result certified
-#110  Coalition formed
-#111  Prime Minister appointed
-```
-
-The event system can later be expanded into a tamper-evident audit log.
-
----
-
-## Secret Voting
-
-Some votes should support secret ballots.
-
-Examples include:
-
-- general elections;
-- constitutional referendums;
-- Host elections;
-- removal votes.
-
-Public legislative votes can remain visible.
-
-The initial version may use simpler trusted-host ballot handling.
-
-A later version may add cryptographic ballot protection so that even the Lobby Owner cannot inspect individual secret votes.
-
----
-
-## Host Migration
-
-The game should not end just because the original Lobby Owner disconnects.
-
-Connected players should maintain sufficiently recent copies of the game state to allow another player to become Lobby Owner.
-
-Possible flow:
-
-```text
-Lobby Owner disconnects
-        ↓
-Peers detect connection loss
-        ↓
-Replacement Lobby Owner selected
-        ↓
-Latest valid state recovered
-        ↓
-Game continues
-```
-
-This is a networking mechanism only.
-
-It does not alter any constitutional office.
-
----
-
-## Development Roadmap
-
-### Phase 1 — Offline Prototype
-
-- Main menu
-- Create local game
-- Player management
-- Political parties
-- Basic game state
-- Local save/load
-- Basic UI
-
-### Phase 2 — Elections
-
-- Election creation
-- Voting
-- Ranked-choice counting
-- Proportional seat allocation
-- Committee elections
-- Results screen
-
-### Phase 3 — Legislature and Government
-
-- Legislature
-- MPs
-- Bills
-- Coalitions
-- Prime Minister
-- Ministers
-- Confidence system
-
-### Phase 4 — Laws and Constitution
-
-- Law proposals
-- Legislative voting
-- Referendums
-- Constitutional amendments
-- Rule history
-
-### Phase 5 — Committees and Cases
-
-- AC
-- PC
-- PAC
-- PPC
-- Evidence
-- Jury selection
-- Verdicts
-- Punishment
-
-### Phase 6 — Multiplayer
-
-- P2P lobby creation
-- Lobby codes
-- Invite links
-- State replication
-- Reconnection
-- Lobby Owner migration
-
-### Phase 7 — Persistence and Recovery
-
-- IndexedDB
-- Automatic snapshots
-- Export/import
-- Recovery tools
-- State validation
-
-### Phase 8 — Security
-
-- Player identities
-- Signed actions
-- Tamper detection
-- Improved secret ballots
-- Audit verification
-
----
-
-## Running Locally
-
-The project should eventually be runnable with any simple static web server.
-
-For example:
+Or run:
 
 ```bash
 python -m http.server 8000
@@ -515,67 +52,177 @@ Then open:
 http://localhost:8000
 ```
 
-Some browser networking features may require the project to run through HTTP/HTTPS rather than directly opening `index.html`.
+## Test & Stress Lab
 
----
+The **Test & Stress Lab** began with the Phase 12 offline-alpha tools and is expanded in Phases 27–28.
 
-## GitHub Pages
+It can:
 
-The production game can be published using GitHub Pages.
+- generate enough synthetic players to reach 30 active players;
+- create three test political parties;
+- distribute independent test players across parties;
+- run a state-integrity audit;
+- show which major offline systems have been exercised in the current save;
+- run 2,000 randomized rule-property scenarios in the browser;
+- measure current save size and synthetic full-state P2P fan-out at 2/10/25/50/100-player scales;
+- benchmark proportional/ranked election counting and integrity-audit cost.
 
-Once enabled, players will be able to open the game directly from a browser without installing anything.
+The test-data tools modify the current save. The property/stress tests are read-only.
 
-A typical deployment would look like:
+## Automated Phase 12 Smoke Test
 
-```text
-https://USERNAME.github.io/democracy-web/
+From the project directory:
+
+```bash
+node tests/phase12-smoke.mjs
 ```
 
-Players could then create a lobby and share an invite link through WhatsApp, Discord or another messaging service.
+The scenario creates 30 players and exercises parties, a general election, Parliament, government formation, Host election, all four committee elections, an ordinary law case, jury review, PPC punishment, a constitutional amendment, legislation and Host removal. It finishes with a state-integrity audit.
+
+## Architecture
+
+Political systems are deliberately kept separate from networking:
+
+```text
+UI
+ ↓
+Actions
+ ↓
+Game Rules / Validation
+ ↓
+Canonical State
+ ↓
+Persistence
+ ↓
+Networking Adapter
+```
+
+This allows the same political engine to operate locally now and over P2P networking later.
+
+## Full Rulebook
+
+`full-rules.md` contains the permanent rule/procedure reference.
+
+The mutable starting Constitution and current laws belong to each individual save. Constitutional votes modify the save's live Constitution rather than rewriting the static rulebook file.
+
+## Multiplayer security model
+
+The Lobby Owner sequences actions, but connected peers no longer trust arbitrary owner state replacements. Each online political mutation is signed by the player who requested it, re-authorized against that player's canonical identity/role, replayed deterministically by every peer, and accepted only when the resulting state hash matches. Lobby Owner migration claims are also identity-signed and must advance exactly one authority epoch from the deterministic eligible successor.
+
+First-time joins require the Lobby Owner fingerprint. Full invite links carry it automatically; manual room-code joins must paste the 64-character fingerprint obtained from the host out-of-band.
+
+The **Recovery** tab shows local/peer state versions and authority epochs, recovery packets exchanged during migration, verified local snapshots, and unrevealed sealed ballots. It can request a canonical resync, rebroadcast recovery state, or restore an integrity-checked snapshot.
+
+## Network Failure and Recovery (Phase 21)
+
+Phase 21 adds deliberate recovery paths for failures that automatic migration cannot safely solve:
+
+- **Secure resync** — peers request missing signed transitions rather than accepting a fresh arbitrary full-state overwrite.
+- **Recovery-state rebroadcast** — useful when an owner migration appears stuck or peers need to re-advertise their latest state.
+- **Peer diagnostics** — shows state version, authority epoch and current network role for connected peers.
+- **Migration recovery copies** — shows the recovery-state copies seen during the current session.
+- **Verified snapshot restore** — snapshot hashes and event-head hashes are checked before restore, and a pre-restore safety snapshot is created automatically.
+- **Sealed ballot recovery** — the ballot-box holder can export a password-protected `.dbr` recovery package. Another browser can import it using the passphrase and continue counting the same sealed vote.
+
+Ballot recovery packages use PBKDF2-SHA-256 (250,000 iterations) to derive an AES-GCM-256 encryption key. The ballot private key is therefore never placed in normal replicated state.
+
+## Security / Identity (Phase 18–19)
+
+Each browser can generate a persistent ECDSA P-256 player identity. In 1.0.3 the secure signing key is stored as a non-extractable Web Crypto key in IndexedDB rather than as plaintext private JWK data in localStorage. The public key fingerprint is bound to the in-game player. Reconnection and every online political action prove possession of that key.
+
+Official history is hash-chained with SHA-256. Each event records its sequence number, the previous event hash and its own hash. Snapshots and exported saves also contain integrity hashes so unexpected modification can be detected.
+
+Legacy 1.0.2 identity files can still be imported once and are converted into the non-extractable storage format. New raw private-key export is intentionally disabled. Losing the browser profile therefore means losing that identity unless an older compatible backup already exists.
+
+## Sealed Secret Ballots (Phase 20)
+
+Secret votes opened through the normal UI now use a sealed ballot box. Each ballot choice is encrypted in the voter's browser using hybrid RSA-OAEP + AES-GCM encryption before entering shared state. The replicated state records only encrypted ballot envelopes plus participation markers while voting is open.
+
+When the vote closes, the ballot-box holder decrypts the envelopes locally and submits a randomized-order list of plaintext choices for tallying. The ballot-box private key is not replicated into shared state. A browser holding the ballot-box key (or an imported recovery package) can audit the revealed multiset against the encrypted envelopes. Sealed ballots cannot be changed after submission.
+
+This is not threshold cryptography: the ballot-box holder can technically decrypt early, so strong secrecy from that holder still requires a future threshold/mix-net design.
+
+The browser that opens a sealed vote still holds the live ballot-box private key locally, but Phase 21 can now export that key as a password-protected recovery package and import it on another trusted browser if recovery is required.
+
+Automated test:
+
+```bash
+node tests/phase20-secret-ballots.mjs
+```
+
+
+## Next Phase
+
+**Phase 22 — User Interface Redesign**
+
+The next phase focuses on turning the technically complete administration screens into a cleaner game-like interface while preserving the established political and recovery systems.
+
+
+## Current Build
+
+**v0.30.0-phase30**
+
+The current build completes Phase 30. It includes the full offline political engine, P2P multiplayer, recovery, cryptographic security on HTTPS, LAN Test Mode for development, accessibility/PWA support, automated/stress testing, security hardening and GitHub Pages deployment configuration.
+
+
+## Notifications, PWA and Accessibility (Phases 24–26)
+
+Phase 24 adds an in-app attention centre derived from canonical game state, optional browser notifications, unread/dismissed alerts, deadline warnings, unvoted-ballot reminders, caretaker/early-election warnings and accused-player case-response alerts. Notifications are optional and never required for game correctness.
+
+Phase 25 adds a Web App Manifest, application icons, service worker shell caching and an install prompt where supported. Democracy Web remains a normal static GitHub Pages site and does not require installation.
+
+Phase 26 adds keyboard-visible focus, a skip link, accessible route state, modal focus trapping and Escape dismissal, focus restoration, live announcements, reduced-motion support, forced-colour support and mobile-accessibility refinements.
+
+
+## Phase 27 — Automated Rule Testing
+
+Run the larger command-line property suite with:
+
+```bash
+node tests/phase27-rules.mjs
+```
+
+It runs 10,000 deterministic randomized scenarios over legislature sizing, committee thresholds, largest-remainder allocation, ranked-choice counting, turnout and ballot invariants.
+
+## Phase 28 — Synthetic Multiplayer Stress Testing
+
+Run:
+
+```bash
+node tests/phase28-stress.mjs
+```
+
+This creates a 100-player fixture, audits it, measures serialized state size, estimates full-state owner fan-out for 2/10/25/50/100-player lobbies and benchmarks election-counting throughput. It is a synthetic harness: real WebRTC/NAT connection-success measurements still require multi-browser/device alpha testing.
+
+## Phase 29 — Security and Abuse Hardening
+
+Production use requires HTTPS (GitHub Pages supplies HTTPS). Phase 29 adds a restrictive Content Security Policy, referrer protection, network action/state size limits, safer join-name handling, replay/staleness checks, explicit secure-context detection and a visible private-LAN development mode. Plain HTTP on private LAN IPs no longer crashes on `crypto.subtle`; it enters clearly marked **LAN Test Mode** with non-secure development identity proofs. Sealed secret ballots remain disabled until HTTPS is used.
+
+See [`SECURITY.md`](./SECURITY.md) for the trust model.
+
+## Phase 30 — GitHub Pages Deployment
+
+The repository now includes `.nojekyll`, a Pages deployment workflow at `.github/workflows/pages.yml`, a simple `404.html` recovery page, and production-relative asset paths. Push the repository to the `main` branch, enable **Settings → Pages → Source: GitHub Actions**, and the included workflow can publish the static app. No application server is required.
+
+For local multi-device testing, run `start-lan.bat`. Use the printed `http://192.168...:8000` address on other devices. This is development-only LAN Test Mode; use the deployed HTTPS Pages URL to test the full cryptographic feature set.
 
 ---
 
-## Communication
+## Version 1.0
 
-The website is intended to handle official game mechanics.
+Democracy Web has reached its stable release line (`1.0.3`). The original Phase 0–33 development roadmap is complete.
 
-Political discussion can happen elsewhere.
+Version 1.0 includes the complete offline political simulation, invite-based P2P multiplayer, persistence/recovery, cryptographic identities, sealed ballots, mobile/PWA/accessibility work, automated rule testing, stress tooling, production hardening and GitHub Pages deployment support.
 
-For example:
+For release-specific information see [`RELEASE_NOTES.md`](./RELEASE_NOTES.md) and [`CHANGELOG.md`](./CHANGELOG.md).
 
-**WhatsApp / Discord**
+The in-app **Release** page can generate a privacy-safe diagnostics report for bug reports and rerun the first-use walkthrough.
 
-- campaigning
-- debates
-- manifestos
-- coalition negotiations
-- political discussion
 
-**Democracy Web**
+## TURN Relay Fallback
 
-- official elections
-- laws
-- legislature
-- government
-- committees
-- cases
-- Constitution
-- official records
+Democracy Web normally connects peers directly with WebRTC. Some restrictive NAT/firewall combinations require a TURN relay. Version 1.0.3 supports TURN through the **Multiplayer → TURN Relay Fallback** panel.
 
-This keeps the social side of the game flexible while giving important political actions a reliable official record.
+TURN configuration is stored only in the local browser and is not included in Democracy saves or shared state. Configure one or more `turn:` / `turns:` URLs, username and credential. You can temporarily enable **Force relay for testing** to verify the relay by forcing WebRTC to use relay candidates.
 
----
-
-## Status
-
-Early development.
-
-The current focus is designing the architecture and building the first playable prototype.
-
----
-
-## License
-
-A licence has not yet been selected.
-
-Before accepting outside contributions or releasing the project more widely, an appropriate open-source licence should be added.
+The project does not bundle public TURN credentials. A TURN service (hosted or self-hosted, such as coturn) is still required when relay connectivity is needed.
