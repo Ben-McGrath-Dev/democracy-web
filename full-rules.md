@@ -2,7 +2,7 @@
 
 ## Constitution & Rules
 
-### A WhatsApp Political Simulation Game
+### A WhatsApp/Web Political Simulation Game
 
 **Version 2**
 
