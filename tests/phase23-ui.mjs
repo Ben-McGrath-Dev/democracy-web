@@ -7,7 +7,7 @@ const checks=[
  ['Desktop sidebar',html.includes('class="sidebar"')&&html.includes('class="side-nav"')],
  ['Mobile bottom dock',html.includes('class="mobile-dock"')],
  ['Mobile full menu',html.includes('id="mobileMenu"')&&app.includes('setMobileMenu')],
- ['Attention dashboard',app.includes('Needs attention')&&app.includes('Political state')],
+ ['Attention dashboard',app.includes('Your next actions')&&app.includes('Political snapshot')],
  ['Quick political links',main.includes('.quick-links')&&app.includes('quick-link')],
  ['Web Share integration',app.includes('navigator.share')&&app.includes("action === 'share-game'")],
  ['Vote sharing',app.includes("action === 'share-vote'")],

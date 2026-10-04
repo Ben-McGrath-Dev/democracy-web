@@ -1,8 +1,8 @@
-# Democracy Web 1.1
+# Democracy Web 1.2 Frontend Preview
 
 Democracy Web is a browser political simulation for running elections, Parliament, governments, laws, constitutional procedure, committees, cases and referendums.
 
-Version **1.1.0** completes the multiplayer migration from WebRTC/P2P to **Cloudflare Workers + SQLite-backed Durable Objects + WebSockets**.
+Current build **1.2.0-phase69** is a frontend-experience preview built on the stable 1.1 Cloud architecture. The 1.1 line completed the migration from WebRTC/P2P to **Cloudflare Workers + SQLite-backed Durable Objects + WebSockets**.
 
 ## Multiplayer architecture
 
@@ -142,7 +142,7 @@ wrangler.jsonc       Cloudflare configuration
 
 ## Tests
 
-Run the focused 1.1 test set:
+Run the complete regression suite:
 
 ```bash
 npm test
@@ -161,3 +161,13 @@ The repository also retains the older political, security and recovery regressio
 **1.1.0 — Cloud Multiplayer Cutover**
 
 Phase 44 completes the Phase 34–44 Cloudflare migration roadmap.
+
+## Frontend Experience Preview — Phases 45–48
+
+The `1.2.0-phase48` build is a frontend-only experience pass. It introduces an attention-first personal dashboard, multi-step onboarding, a permanent Help & Guides centre, a glossary, contextual guides, process trackers, and simplified Cloud connection UX. Political rules and the Cloud sequencer remain unchanged from the 1.1 line.
+
+## Frontend Experience Preview — Second pass through Phase 69
+
+`1.2.0-phase69` continues the second frontend pass with equal desktop and phone polish. Phases 68–69 turn Laws/Constitution and Committees/Cases into richer workspaces: live legislation is separated from the statute book and archive, constitutional sections are searchable and deep-linkable with responsive contents navigation, committee work is prioritised by the connected player, and cases read as structured procedural records with required actions surfaced first. Phases 66–67 previously overhauled Votes/Elections and Parliament/Government. AC remains reserved for the constitutional Actions Committee. The deterministic political engine and Cloud protocol are unchanged.
+
+Earlier second-pass foundation: Phase 57 expands the design-system foundations; Phase 58 overhauls the application shell with remembered collapsible navigation, action badges, persistent connection/acting-player context, global command search and proper browser Back/Forward history with scroll restoration. The deterministic political engine and Cloud protocol are unchanged.

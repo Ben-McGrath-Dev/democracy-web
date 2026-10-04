@@ -119,6 +119,13 @@ function ensureActivePlayer(player) {
   if (player.status !== 'active') throw new Error('This action requires an active player.');
 }
 
+function cleanPartyColour(value, fallback = '#475569') {
+  const text = String(value ?? '').trim();
+  if (!text) return fallback;
+  if (!/^#[0-9a-fA-F]{6}$/.test(text)) throw new Error('Party colour must be a six-digit hex colour such as #475569.');
+  return text.toLowerCase();
+}
+
 function removeMember(party, playerId) {
   party.members = party.members.filter(id => id !== playerId);
 }
@@ -515,6 +522,7 @@ export function dispatch(action) {
     case 'GAME_RENAMED': {
       const name = action.name?.trim();
       if (!name) throw new Error('Game name cannot be empty.');
+      if (name.length > 80) throw new Error('Game names must be 80 characters or fewer.');
       const previousName = state.meta.name;
       state.meta.name = name;
       touch(state);
@@ -622,12 +630,15 @@ export function dispatch(action) {
       if (duplicate) throw new Error('An active party already uses that name.');
       const id = createId('party');
       const now = nowIso();
+      const description = action.description?.trim() || '';
+      if (description.length > 500) throw new Error('Party descriptions must be 500 characters or fewer.');
+      const colour = cleanPartyColour(action.colour, '#475569');
       state.parties[id] = {
         id,
         name,
         abbreviation: abbreviation.slice(0, 10),
-        description: action.description?.trim() || '',
-        colour: action.colour || '#475569',
+        description,
+        colour,
         leaderId: leader.id,
         members: [leader.id],
         createdAt: now,
@@ -762,12 +773,15 @@ export function dispatch(action) {
       const previous = { name: party.name, abbreviation: party.abbreviation, description: party.description, colour: party.colour };
       const name = action.name?.trim();
       if (!name) throw new Error('Party name cannot be empty.');
+      if (name.length > 80) throw new Error('Party names must be 80 characters or fewer.');
       const duplicate = Object.values(state.parties).some(p => p.id !== party.id && p.status === 'active' && p.name.toLowerCase() === name.toLowerCase());
       if (duplicate) throw new Error('An active party already uses that name.');
+      const description = action.description?.trim() || '';
+      if (description.length > 500) throw new Error('Party descriptions must be 500 characters or fewer.');
       party.name = name;
       party.abbreviation = (action.abbreviation?.trim().toUpperCase() || '').slice(0, 10);
-      party.description = action.description?.trim() || '';
-      party.colour = action.colour || party.colour;
+      party.description = description;
+      party.colour = cleanPartyColour(action.colour, party.colour || '#475569');
       touch(state);
       addEvent(state, createEvent('PARTY_UPDATED', action.actorId, { partyId: party.id, previous, current: { name: party.name, abbreviation: party.abbreviation, description: party.description, colour: party.colour } }));
       break;

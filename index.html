@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-ui-mode="simple">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -25,41 +25,74 @@
         <span><strong>Democracy Web</strong><small><span id="appVersion"></span> · <span id="saveStatus">Local</span></small></span>
       </button>
 
-      <nav class="side-nav">
-        <div class="nav-group"><span class="nav-label">Overview</span>
-          <button data-route="dashboard"><span class="nav-icon">⌂</span>Dashboard</button>
-          <button data-route="multiplayer"><span class="nav-icon">◎</span>Multiplayer</button>
-          <button data-route="notifications"><span class="nav-icon">◔</span>Notifications <span id="notificationBadge" class="nav-badge" hidden>0</span></button>
+      <div class="sidebar-tools">
+        <button class="sidebar-search" type="button" data-action="open-command-palette" aria-keyshortcuts="Control+K Meta+K">
+          <span aria-hidden="true">⌕</span><span>Search or jump to…</span><kbd>⌘K</kbd>
+        </button>
+      </div>
+      <nav class="side-nav" aria-label="Sections">
+        <div class="nav-group" data-nav-group="overview">
+          <button class="nav-group-toggle" type="button" data-action="toggle-nav-group" data-nav-group-name="overview" aria-expanded="true"><span>Overview</span><span class="nav-group-chevron" aria-hidden="true">⌄</span></button>
+          <div class="nav-group-items">
+            <button data-route="dashboard"><span class="nav-icon">⌂</span><span>Dashboard</span></button>
+            <button data-route="actions"><span class="nav-icon">!</span><span>My Actions</span><span id="actionBadge" class="nav-badge nav-badge-action" hidden>0</span></button>
+            <button data-route="activity"><span class="nav-icon">◷</span><span>Activity</span></button>
+            <button data-route="multiplayer"><span class="nav-icon">◎</span><span>Multiplayer</span></button>
+            <button data-route="notifications"><span class="nav-icon">◔</span><span>Notifications</span><span id="notificationBadge" class="nav-badge" hidden>0</span></button>
+            <button data-route="help"><span class="nav-icon">?</span><span>Help & Guides</span></button>
+          </div>
         </div>
-        <div class="nav-group"><span class="nav-label">Politics</span>
-          <button data-route="votes"><span class="nav-icon">✓</span>Votes</button>
-          <button data-route="elections"><span class="nav-icon">◫</span>Elections</button>
-          <button data-route="parliament"><span class="nav-icon">▥</span>Parliament</button>
-          <button data-route="government"><span class="nav-icon">◆</span>Government</button>
-          <button data-route="parties"><span class="nav-icon">●</span>Parties</button>
-          <button data-route="players"><span class="nav-icon">◉</span>Players</button>
+        <div class="nav-group" data-nav-group="politics">
+          <button class="nav-group-toggle" type="button" data-action="toggle-nav-group" data-nav-group-name="politics" aria-expanded="true"><span>Politics</span><span class="nav-group-chevron" aria-hidden="true">⌄</span></button>
+          <div class="nav-group-items">
+            <button data-route="votes"><span class="nav-icon">✓</span><span>Votes</span><span id="voteBadge" class="nav-badge nav-badge-action" hidden>0</span></button>
+            <button data-route="elections"><span class="nav-icon">◫</span><span>Elections</span></button>
+            <button data-route="parliament"><span class="nav-icon">▥</span><span>Parliament</span></button>
+            <button data-route="government"><span class="nav-icon">◆</span><span>Government</span></button>
+            <button data-route="parties"><span class="nav-icon">●</span><span>Parties</span></button>
+            <button data-route="players"><span class="nav-icon">◉</span><span>Players</span></button>
+          </div>
         </div>
-        <div class="nav-group"><span class="nav-label">Law & Constitution</span>
-          <button data-route="laws"><span class="nav-icon">§</span>Laws</button>
-          <button data-route="constitution"><span class="nav-icon">¶</span>Constitution</button>
-          <button data-route="committees"><span class="nav-icon">◇</span>Committees</button>
-          <button data-route="cases"><span class="nav-icon">⚖</span>Cases</button>
-          <button data-route="rulebook"><span class="nav-icon">▤</span>Full Rulebook</button>
+        <div class="nav-group" data-nav-group="law">
+          <button class="nav-group-toggle" type="button" data-action="toggle-nav-group" data-nav-group-name="law" aria-expanded="true"><span>Law & Constitution</span><span class="nav-group-chevron" aria-hidden="true">⌄</span></button>
+          <div class="nav-group-items">
+            <button data-route="laws"><span class="nav-icon">§</span><span>Laws</span></button>
+            <button data-route="constitution"><span class="nav-icon">¶</span><span>Constitution</span></button>
+            <button data-route="committees"><span class="nav-icon">◇</span><span>Committees</span></button>
+            <button data-route="cases"><span class="nav-icon">⚖</span><span>Cases</span><span id="caseBadge" class="nav-badge nav-badge-action" hidden>0</span></button>
+            <button data-route="rulebook"><span class="nav-icon">▤</span><span>Full Rulebook</span></button>
+          </div>
         </div>
-        <div class="nav-group"><span class="nav-label">System</span>
-          <button data-route="recovery"><span class="nav-icon">↻</span>Recovery</button>
-          <button data-route="load"><span class="nav-icon">▣</span>Saves</button>
-          <button data-route="testlab"><span class="nav-icon">⌁</span>Test Lab</button>
-          <button data-route="release"><span class="nav-icon">★</span>Release</button>
-          <button data-route="about"><span class="nav-icon">i</span>About</button>
+        <div class="nav-group" data-nav-group="system">
+          <button class="nav-group-toggle" type="button" data-action="toggle-nav-group" data-nav-group-name="system" aria-expanded="true"><span>System</span><span class="nav-group-chevron" aria-hidden="true">⌄</span></button>
+          <div class="nav-group-items">
+            <button class="advanced-only" data-route="recovery"><span class="nav-icon">↻</span><span>Recovery</span></button>
+            <button data-route="load"><span class="nav-icon">▣</span><span>Saves</span></button>
+            <button class="advanced-only" data-route="testlab"><span class="nav-icon">⌁</span><span>Test Lab</span></button>
+            <button class="advanced-only" data-route="release"><span class="nav-icon">★</span><span>Release</span></button>
+            <button class="advanced-only" data-route="about"><span class="nav-icon">i</span><span>About</span></button>
+          </div>
         </div>
       </nav>
-      <div class="sidebar-footer"><button class="btn btn-primary btn-block" data-route="create">＋ New Democracy</button></div>
+      <div class="sidebar-footer">
+        <div id="sidebarContext" class="sidebar-context" aria-live="polite">
+          <div class="sidebar-context-row"><span id="shellConnectionDot" class="connection-dot local" aria-hidden="true"></span><strong id="shellConnectionLabel">Local game</strong></div>
+          <div id="shellActorRow" class="sidebar-actor" hidden><span class="avatar avatar-sm" id="shellActorAvatar">?</span><span><small>Acting as</small><strong id="shellActorName">—</strong></span></div>
+        </div>
+        <button class="btn btn-block" data-action="toggle-ui-mode">◐ <span data-ui-mode-label>Simple</span> interface</button>
+        <button class="btn btn-primary btn-block" data-route="create">＋ New Democracy</button>
+      </div>
     </aside>
 
     <header class="mobile-header">
-      <button class="brand" data-route="home" aria-label="Democracy Web home"><span class="brand-mark">D</span><span><strong>Democracy</strong><small id="mobileSaveStatus">Web</small></span></button>
-      <button class="icon-btn" data-action="toggle-mobile-menu" aria-label="Open navigation" aria-expanded="false">☰</button>
+      <div class="mobile-header-leading">
+        <button id="mobileBackButton" class="icon-btn mobile-back" data-action="mobile-back" aria-label="Back" hidden>←</button>
+        <button class="mobile-page-identity" data-route="dashboard" aria-label="Open Dashboard">
+          <span id="mobilePageKicker">Democracy Web</span>
+          <strong id="mobilePageTitle">Home</strong>
+        </button>
+      </div>
+      <div class="mobile-header-actions"><button class="icon-btn" data-action="open-command-palette" aria-label="Search and jump to">⌕</button><button class="icon-btn" data-action="toggle-mobile-menu" aria-label="Open navigation" aria-expanded="false">☰</button></div>
     </header>
 
     <div id="securityBanner" class="security-banner" hidden></div>
@@ -67,9 +100,9 @@
 
     <nav class="mobile-dock" aria-label="Quick navigation">
       <button data-route="dashboard"><span>⌂</span><small>Home</small></button>
-      <button data-route="votes"><span>✓</span><small>Votes</small></button>
-      <button data-route="parliament"><span>▥</span><small>Parliament</small></button>
-      <button data-route="government"><span>◆</span><small>Gov</small></button>
+      <button data-route="actions"><span class="dock-icon-wrap">!<b id="dockActionBadge" class="dock-badge" hidden>0</b></span><small>My Actions</small></button>
+      <button data-route="votes"><span class="dock-icon-wrap">✓<b id="dockVoteBadge" class="dock-badge" hidden>0</b></span><small>Votes</small></button>
+      <button data-route="cases"><span class="dock-icon-wrap">⚖<b id="dockCaseBadge" class="dock-badge" hidden>0</b></span><small>Cases</small></button>
       <button data-action="toggle-mobile-menu"><span>☰</span><small>Menu</small></button>
     </nav>
 
@@ -77,22 +110,51 @@
       <button class="mobile-menu-backdrop" data-action="toggle-mobile-menu" aria-label="Close navigation"></button>
       <section class="mobile-menu-sheet" aria-label="All navigation">
         <div class="mobile-menu-handle"></div>
-        <div class="section-header compact-header"><div><h2>Navigate</h2><p class="muted">All Democracy tools</p></div><button class="icon-btn" data-action="toggle-mobile-menu" aria-label="Close">×</button></div>
-        <div class="mobile-menu-grid">
-          <button data-route="dashboard">⌂ <span>Dashboard</span></button><button data-route="multiplayer">◎ <span>Multiplayer</span></button>
-          <button data-route="notifications">◔ <span>Notifications</span></button>
-          <button data-route="votes">✓ <span>Votes</span></button><button data-route="elections">◫ <span>Elections</span></button>
-          <button data-route="parliament">▥ <span>Parliament</span></button><button data-route="government">◆ <span>Government</span></button>
-          <button data-route="parties">● <span>Parties</span></button><button data-route="players">◉ <span>Players</span></button>
-          <button data-route="laws">§ <span>Laws</span></button><button data-route="constitution">¶ <span>Constitution</span></button>
-          <button data-route="committees">◇ <span>Committees</span></button><button data-route="cases">⚖ <span>Cases</span></button>
-          <button data-route="rulebook">▤ <span>Rulebook</span></button><button data-route="recovery">↻ <span>Recovery</span></button>
-          <button data-route="load">▣ <span>Saves</span></button><button data-route="release">★ <span>Release</span></button><button data-route="about">i <span>About</span></button>
+        <div class="mobile-menu-top">
+          <div><span class="page-kicker">Democracy Web</span><h2>Menu</h2></div>
+          <button class="icon-btn" data-action="toggle-mobile-menu" aria-label="Close">×</button>
         </div>
-        <button class="btn btn-primary btn-block" data-route="create">＋ Create Democracy</button>
+        <div class="mobile-context-card" aria-live="polite">
+          <span id="mobileShellConnectionDot" class="connection-dot local" aria-hidden="true"></span>
+          <div><small id="mobileShellConnectionLabel">Local game</small><strong id="mobileShellActorName">No player selected</strong></div>
+          <span id="mobileSaveStatus" class="mobile-save-chip">Saved</span>
+        </div>
+        <button class="mobile-search" type="button" data-action="open-command-palette">⌕ <span>Search pages, people and political objects</span><kbd>⌘K</kbd></button>
+        <div class="mobile-menu-sections">
+          <section class="mobile-menu-section"><h3>Overview</h3><div class="mobile-menu-grid">
+            <button data-route="dashboard">⌂ <span>Dashboard</span></button><button data-route="actions">! <span>My Actions</span><span id="mobileActionBadge" class="nav-badge nav-badge-action" hidden>0</span></button>
+            <button data-route="activity">◷ <span>Activity</span></button><button data-route="notifications">◔ <span>Notifications</span></button>
+            <button data-route="multiplayer">◎ <span>Multiplayer</span></button><button data-route="help">? <span>Help & Guides</span></button>
+          </div></section>
+          <section class="mobile-menu-section"><h3>Politics</h3><div class="mobile-menu-grid">
+            <button data-route="votes">✓ <span>Votes</span><span id="mobileVoteBadge" class="nav-badge nav-badge-action" hidden>0</span></button><button data-route="elections">◫ <span>Elections</span></button>
+            <button data-route="parliament">▥ <span>Parliament</span></button><button data-route="government">◆ <span>Government</span></button>
+            <button data-route="parties">● <span>Parties</span></button><button data-route="players">◉ <span>Players</span></button>
+          </div></section>
+          <section class="mobile-menu-section"><h3>Law & Constitution</h3><div class="mobile-menu-grid">
+            <button data-route="laws">§ <span>Laws</span></button><button data-route="constitution">¶ <span>Constitution</span></button>
+            <button data-route="committees">◇ <span>Committees</span></button><button data-route="cases">⚖ <span>Cases</span><span id="mobileCaseBadge" class="nav-badge nav-badge-action" hidden>0</span></button>
+            <button data-route="rulebook">▤ <span>Full Rulebook</span></button><button data-route="load">▣ <span>Saves</span></button>
+          </div></section>
+          <section class="mobile-menu-section advanced-only"><h3>Advanced</h3><div class="mobile-menu-grid">
+            <button data-route="recovery">↻ <span>Recovery</span></button><button data-route="testlab">⌁ <span>Test Lab</span></button>
+            <button data-route="release">★ <span>Release</span></button><button data-route="about">i <span>About</span></button>
+          </div></section>
+        </div>
+        <div class="mobile-menu-footer"><button class="btn btn-block" data-action="toggle-ui-mode">◐ <span data-ui-mode-label>Simple</span> interface</button><button class="btn btn-primary btn-block" data-route="create">＋ Create Democracy</button></div>
       </section>
     </div>
 
+
+    <div id="commandPalette" class="command-palette" hidden aria-hidden="true">
+      <button class="command-palette-backdrop" type="button" data-action="close-command-palette" aria-label="Close search"></button>
+      <section class="command-dialog" role="dialog" aria-modal="true" aria-labelledby="commandPaletteTitle">
+        <h2 id="commandPaletteTitle" class="sr-only">Search and jump to</h2>
+        <div class="command-search-row"><span aria-hidden="true">⌕</span><input id="commandSearchInput" type="search" autocomplete="off" spellcheck="false" placeholder="Search pages, players, parties, laws, cases…" aria-controls="commandResults"><kbd>Esc</kbd></div>
+        <div id="commandResults" class="command-results" role="listbox" aria-label="Search results"></div>
+        <div class="command-footer"><span><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>Enter</kbd> open</span><span><kbd>Esc</kbd> close</span></div>
+      </section>
+    </div>
     <div id="connectionAnnouncer" class="sr-only" aria-live="polite"></div>
     <div id="toastRegion" class="toast-region" aria-live="polite" aria-atomic="true"></div>
     <div id="modalRoot"></div>

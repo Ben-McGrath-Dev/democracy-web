@@ -1,26 +1,100 @@
 :root {
+  /* Surfaces and text */
   --bg: #f6f7f9;
   --surface: #ffffff;
   --surface-soft: #f8fafc;
   --surface-strong: #eef2f7;
+  --surface-inverse: #101828;
   --text: #172033;
   --muted: #667085;
+  --muted-strong: #475467;
   --border: #e3e7ee;
+  --border-strong: #cbd5e1;
+
+  /* Brand and semantic colour */
   --accent: #18233a;
   --accent-2: #2d3d5c;
   --accent-soft: #edf1f7;
   --danger: #b42318;
   --danger-soft: #fef3f2;
+  --danger-border: #fecdca;
   --success: #067647;
   --success-soft: #ecfdf3;
+  --success-border: #abefc6;
   --warning: #b54708;
   --warning-soft: #fffaeb;
+  --warning-border: #fedf89;
   --info: #175cd3;
-  --radius: 16px;
+  --info-soft: #eff8ff;
+  --info-border: #b2ddff;
+
+  /* Spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Typography */
+  --font-xs: .72rem;
+  --font-sm: .82rem;
+  --font-md: .95rem;
+  --font-lg: 1.08rem;
+  --font-xl: 1.35rem;
+  --font-2xl: 1.8rem;
+  --weight-medium: 600;
+  --weight-semibold: 700;
+  --weight-bold: 800;
+  --weight-black: 900;
+  --line-tight: 1.15;
+  --line-normal: 1.5;
+
+  /* Shape */
+  --radius-xs: 8px;
   --radius-sm: 11px;
-  --shadow: 0 12px 32px rgba(16,24,40,.07);
+  --radius: 16px;
+  --radius-lg: 20px;
+  --radius-xl: 24px;
+  --radius-pill: 999px;
+
+  /* Controls */
+  --control-sm: 36px;
+  --control-md: 42px;
+  --control-lg: 48px;
+  --icon-sm: 18px;
+  --icon-md: 20px;
+  --icon-lg: 24px;
+
+  /* Elevation */
+  --shadow-xs: 0 1px 3px rgba(16,24,40,.06);
   --shadow-sm: 0 2px 8px rgba(16,24,40,.05);
+  --shadow: 0 12px 32px rgba(16,24,40,.07);
+  --shadow-lg: 0 24px 64px rgba(16,24,40,.16);
+
+  /* Motion */
+  --motion-fast: 120ms;
+  --motion-normal: 180ms;
+  --motion-slow: 260ms;
+  --ease-standard: cubic-bezier(.2,.8,.2,1);
+
+  /* Focus */
+  --focus: #1570ef;
+  --focus-ring: 0 0 0 3px rgba(21,112,239,.22);
+
+  /* Layout */
   --max-width: 1280px;
-  --sidebar-width: 248px;
+  --content-width: 760px;
+  --sidebar-width: 264px;
   --mobile-dock-height: 68px;
+  --z-header: 60;
+  --z-dock: 65;
+  --z-menu: 90;
+  --z-modal: 110;
+  --z-command: 120;
+  --z-toast: 130;
 }

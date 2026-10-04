@@ -3,11 +3,31 @@ import { securitySummary } from './security.js';
 import { verifyEventChain } from './integrity.js';
 import { auditState, offlineReadiness } from './diagnostics.js';
 
-export const RELEASE_CHANNEL = 'stable';
-export const RELEASE_DATE = '2026-10-03';
-export const RELEASE_NAME = 'Democracy Web 1.1';
+export const RELEASE_CHANNEL = 'preview';
+export const RELEASE_DATE = '2026-10-04';
+export const RELEASE_NAME = 'Democracy Web 1.2 Frontend Second Pass';
 
 export const RELEASE_HIGHLIGHTS = [
+  'Phases 68–69 Laws/Constitution and Committees/Cases polish with equal desktop and mobile information architecture',
+  'Legislation workspaces, searchable constitutional contents/deep links, richer committee workspaces and procedural case records',
+  'Phases 66–67 voting/election and Parliament/Government UX overhaul with mobile-first action ordering',
+  'Pending ballots are surfaced first; elections have lifecycle summaries and government formation has live majority feedback',
+  'Phases 61–63 deep-linked object pages with unified status language and rulebook-aware contextual guidance',
+  'My Actions terminology avoids conflict with AC, which is reserved for the constitutional Actions Committee',
+  'Phase 59 personal My Actions with required actions, upcoming deadlines, explanation panels and reminder snoozing',
+  'Phase 60 shared search, filters, sorting, result counts and remembered list preferences across core political pages',
+  'Phase 57 design-system foundations with expanded tokens and reusable semantic component states',
+  'Phase 58 navigation overhaul with remembered collapsible groups, actionable badges and persistent player/connection context',
+  'Global Ctrl/Cmd+K command search across pages and current Democracy objects',
+  'Browser Back/Forward navigation now preserves useful route scroll positions',
+  'Contextual Democracy Coach that surfaces useful next steps without changing official state',
+  'Redesigned committee and case workflows with clearer membership, recusals, panels, juries and process stages',
+  'Player profiles and official activity timeline for long-running political history',
+  'Simple and Advanced interface modes with improved mobile presentation',
+  'Role-aware frontend that prioritises controls relevant to the connected player',
+  'Visual election results including ranked-choice rounds and largest-remainder explanations',
+  'Redesigned Parliament and Government composition views',
+  'Redesigned legislative and constitutional workflows with document comparisons',
   'Cloudflare Durable Object multiplayer replaces WebRTC/P2P',
   'Player-signed canonical actions with deterministic client-side verification',
   'Automatic reconnect, verified commit resume and persistent snapshot recovery',
@@ -36,7 +56,7 @@ export function releaseReadiness(state, cloudStatus = {}) {
   const offline = state ? offlineReadiness(state) : null;
   const cloudReady = !cloudStatus.roomCode || (cloudStatus.authenticated && cloudStatus.stateSynced && cloudStatus.connection === 'connected');
   return [
-    { label: 'Stable 1.1 build', ok: /^1\.1\./.test(APP_VERSION), detail: `v${APP_VERSION} · ${RELEASE_CHANNEL}` },
+    { label: 'Current frontend preview', ok: /^1\.2\.0-phase(?:4[5-9]|5[0-9]|6[0-9])$/.test(APP_VERSION), detail: `v${APP_VERSION} · ${RELEASE_CHANNEL}` },
     { label: 'Secure production context', ok: security.mode === 'secure', detail: security.mode === 'secure' ? 'Full cryptographic features available' : `${security.mode} — acceptable for development only` },
     { label: 'Official history integrity', ok: history.ok, detail: state ? `${history.count} chained event(s)` : 'No save loaded' },
     { label: 'Current state integrity', ok: !audit || audit.errors === 0, detail: audit ? `${audit.errors} error(s), ${audit.warnings} warning(s)` : 'No save loaded' },

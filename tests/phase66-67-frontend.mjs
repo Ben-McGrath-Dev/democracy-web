@@ -1,0 +1,18 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const app=fs.readFileSync(new URL('../js/app.js',import.meta.url),'utf8');
+const css=fs.readFileSync(new URL('../css/components.css',import.meta.url),'utf8')+fs.readFileSync(new URL('../css/responsive.css',import.meta.url),'utf8');
+const config=fs.readFileSync(new URL('../js/config.js',import.meta.url),'utf8');
+assert.match(config,/1\.2\.0-phase69/);
+assert.match(app,/Your ballots/);
+assert.match(app,/Current election/);
+assert.match(app,/election-focus-grid/);
+assert.match(app,/mobile-mp-list/);
+assert.match(app,/data-route=\\?"player\//);
+assert.match(app,/coalitionLive/);
+assert.match(app,/more seat/);
+assert.match(app,/ranked-ballot-list/);
+assert.match(css,/government-hero/);
+assert.match(css,/mobile-mp-list\{display:grid\}/);
+assert.match(css,/coalition-live\.has-majority/);
+console.log('PASS phases 66–67 voting/elections/parliament/government frontend');

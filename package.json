@@ -1,14 +1,14 @@
 {
   "name": "democracy-web",
-  "version": "1.1.1",
+  "version": "1.2.0-phase69",
   "private": true,
   "type": "module",
   "scripts": {
     "cloud:dev": "wrangler dev",
     "cloud:deploy": "wrangler deploy",
     "test:shared": "node tests/phase34-shared-core.mjs",
-    "test:cloud": "node tests/phase35-cloudflare-foundation.mjs && node tests/phase36-room-lifecycle.mjs && node tests/phase37-cloud-websocket.mjs && node tests/phase38-cloud-auth.mjs && node tests/phase39-cloud-join.mjs && node tests/phase40-cloud-sequencer.mjs && node tests/phase41-cloud-time.mjs && node tests/phase42-cloud-recovery.mjs && node tests/phase43-cloud-reconnect.mjs && node tests/phase44-cloud-cutover.mjs",
-    "test": "node tests/phase44-cloud-cutover.mjs && node tests/phase27-rules.mjs && node tests/phase40-cloud-sequencer.mjs && node tests/phase41-cloud-time.mjs && node tests/phase42-cloud-recovery.mjs && node tests/phase43-cloud-reconnect.mjs"
+    "test:cloud": "node tests/phase35-cloudflare-foundation.mjs && node tests/phase36-room-lifecycle.mjs && node tests/phase37-cloud-websocket.mjs && node tests/phase38-cloud-auth.mjs && node tests/phase39-cloud-join.mjs && node tests/phase40-cloud-sequencer.mjs && node tests/phase41-cloud-time.mjs && node tests/phase42-cloud-recovery.mjs && node tests/phase43-cloud-reconnect.mjs && node tests/phase44-cloud-cutover.mjs && node tests/phase44-cloud-room-not-found.mjs && node tests/phase44-websocket-upgrade.mjs && node tests/phase111-cloud-backend-persistence.mjs",
+    "test": "node tests/run-all.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"

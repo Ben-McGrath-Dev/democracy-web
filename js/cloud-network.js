@@ -14,6 +14,8 @@ const LEGACY_SETTINGS_KEY = 'democracy-web.cloud-backend.v1';
 const SETTINGS_URL_KEY = 'democracy-web.cloud-backend-url';
 const SESSION_KEY = 'democracy-web.cloud-session.v1';
 const RECONNECT_DELAYS_MS = [1000, 2000, 4000, 8000, 15000, 30000];
+const PREFLIGHT_TIMEOUT_MS = 10_000;
+const WEBSOCKET_AUTH_TIMEOUT_MS = 15_000;
 const listeners = new Set();
 let socket = null;
 let reconnectTimer = null;
@@ -115,21 +117,31 @@ export function setCloudSettings(next = {}) {
 
 
 async function preflightCloudRoom(apiBase, roomCode) {
-  const response = await fetch(`${apiBase}/rooms/${encodeURIComponent(roomCode)}`, {
-    method: 'GET',
-    cache: 'no-store',
-    headers: { accept: 'application/json' }
-  });
-  const data = await response.json().catch(() => ({}));
-  if (response.ok) return data;
-  const error = new Error(
-    response.status === 404
-      ? `Cloud room ${roomCode} does not exist yet. Publish/create this game in Cloud Multiplayer before connecting to it.`
-      : (data?.message || data?.error || `Cloud room preflight failed (${response.status}).`)
-  );
-  error.permanent = response.status === 404 || response.status === 400 || response.status === 403;
-  error.status = response.status;
-  throw error;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), PREFLIGHT_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${apiBase}/rooms/${encodeURIComponent(roomCode)}`, {
+      method: 'GET',
+      cache: 'no-store',
+      headers: { accept: 'application/json' },
+      signal: controller.signal
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.ok) return data;
+    const error = new Error(
+      response.status === 404
+        ? `Cloud room ${roomCode} does not exist yet. Publish/create this game in Cloud Multiplayer before connecting to it.`
+        : (data?.message || data?.error || `Cloud room preflight failed (${response.status}).`)
+    );
+    error.permanent = response.status === 404 || response.status === 400 || response.status === 403;
+    error.status = response.status;
+    throw error;
+  } catch (error) {
+    if (error?.name === 'AbortError') throw new Error('Cloud room lookup timed out. Check the Worker URL and your internet connection.');
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function loadCloudSession() {
@@ -397,13 +409,19 @@ export async function connectCloudRoom(roomCode, options = {}) {
 
   return new Promise((resolve, reject) => {
     let settled = false;
+    let handshakeTimer = null;
     const ws = new WebSocket(wsUrl(settings.apiBase, code));
     socket = ws;
-    const fail = error => {
+    const clearHandshakeTimer = () => { if (handshakeTimer) { clearTimeout(handshakeTimer); handshakeTimer = null; } };
+    const fail = (error, { closeSocket = true } = {}) => {
       const message = error?.message || String(error || 'Cloud WebSocket connection failed.');
-      setStatus({ connection: 'error', lastError: message, authenticated: false });
+      setStatus({ connection: 'error', lastError: message, authenticated: false, stateSynced: false });
       if (!settled) { settled = true; reject(new Error(message)); }
+      if (closeSocket && ws.readyState < WebSocket.CLOSING) {
+        try { ws.close(4002, 'cloud_protocol_error'); } catch {}
+      }
     };
+    handshakeTimer = setTimeout(() => fail(new Error('Cloud connection timed out before authentication completed. Check the Worker and network, then retry.')), WEBSOCKET_AUTH_TIMEOUT_MS);
 
     ws.addEventListener('open', () => {
       setStatus({ connection: 'authenticating' });
@@ -452,6 +470,7 @@ export async function connectCloudRoom(roomCode, options = {}) {
             lastCommitHash: message.payload?.lastCommitHash || null, lastError: '', lastConnectedAt: Date.now(), reconnectAttempt: 0, nextReconnectAt: null, autoReconnect: true
           });
           reconnectAttempt = 0;
+          clearHandshakeTimer();
           startTimeSync();
           if (!settled) { settled = true; resolve(getCloudStatus()); }
           return;
@@ -503,8 +522,9 @@ export async function connectCloudRoom(roomCode, options = {}) {
       } catch (error) { fail(error); }
     });
 
-    ws.addEventListener('error', () => fail(new Error('Cloud WebSocket connection failed. Check the Worker URL and that Wrangler/Cloudflare is reachable.')));
+    ws.addEventListener('error', () => fail(new Error('Cloud WebSocket connection failed. Check the Worker URL and that Wrangler/Cloudflare is reachable.'), { closeSocket: false }));
     ws.addEventListener('close', event => {
+      clearHandshakeTimer();
       if (socket === ws) socket = null;
       if (intentionalClose) {
         setStatus({ connection: 'offline', authenticated: false, connectionId: null, connectedClients: 0, authenticatedClients: 0 });

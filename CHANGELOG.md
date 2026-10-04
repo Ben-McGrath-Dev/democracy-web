@@ -1,3 +1,98 @@
+## 1.2.0-phase69 — Laws, Constitution, Committees and Cases workspace polish
+
+- Phase 68 gives Laws a remembered **In progress / Statute book / Archive** workspace and makes law details document-first on desktop and mobile.
+- The Constitution now has live section search, stable section deep links, a sticky desktop contents rail, compact horizontal mobile contents and amendment backlinks.
+- Phase 69 prioritises the connected player’s committee work and open matters, with clearer membership, alternates, recusals and decision-stage presentation.
+- Cases now surface **Your case actions** first and use a structured procedural record separating complaint, response, PAC finding, mandatory jury review and PPC outcome.
+- Desktop layouts use available width for readable workspaces and supporting sidebars while phone layouts convert the same information into compact, action-first flows.
+- Preserved legacy structural hooks used by compact-view/accessibility regressions while replacing the visible layouts.
+- Political reducers, constitutional wording, thresholds, permissions, vote counting and Cloud authority remain unchanged.
+
+## 1.2.0-phase67 — Voting, elections, Parliament and Government UX
+
+- Phase 66 surfaces the connected player’s uncast ballots before vote history and gives current elections a focused lifecycle summary.
+- Ranked-choice ballots now provide clearer instructions, candidate context and larger touch-friendly ranking controls.
+- Election cards and focused summaries expose personal ballot state, deadline and certification stage more clearly.
+- Phase 67 makes occupied Parliament seats tappable/keyboard-focusable and links them directly to player profiles.
+- Members of Parliament use dedicated mobile cards on narrow screens instead of requiring horizontal table navigation.
+- Government pages now lead with a stronger administration/majority summary.
+- Government formation now calculates coalition seats live, shows the majority threshold, and tells the user how many additional seats are required.
+- Mobile layouts prioritize primary political actions and reduce dense table/detail overload.
+- Political reducers, thresholds, permissions, vote counting and Cloud authority remain unchanged.
+
+## 1.2.0-phase65 — Safer forms, consequence previews and mobile-first controls
+
+- Added Phase 64 shared form UX with required-field markers, inline validation, character counters, normalized input and searchable large candidate/member pickers.
+- Added local autosaved drafts for substantial political forms, including legislation, constitutional amendments, government formation, cases and committee matters.
+- Added review-before-submit steps to high-impact creation flows and ballots without persisting private ballot choices.
+- Added Phase 65 consequence previews that identify the acting player and explain important or irreversible state changes before they are dispatched.
+- Added clearer persistent error/success feedback and double-submit protection.
+- Pulled forward mobile UX work: a current-page mobile header, Home/My Actions/Votes/Cases dock, grouped full menu, acting-player/connection context, mobile back navigation, larger touch controls and sticky bottom-sheet actions.
+- Preserved the constitutional terminology guard: **AC means Actions Committee only**.
+
+## 1.2.0-phase63 — Detail pages, constitutional terminology and contextual guidance
+
+- Renamed the Phase 59 personal UI from “Action Centre” to **My Actions** so the abbreviation **AC** remains reserved for the constitutional **Actions Committee**.
+- Corrected the Help glossary: AC is the elected constitutional oversight body, not an “Amendment Committee”.
+- Added Phase 61 deep-link detail routes for votes, elections, laws, amendments, cases, committees, players and parties.
+- Command search now opens the exact political object instead of only its parent list page.
+- Added breadcrumbs, meaningful browser titles, related records and object-scoped official history.
+- Added Phase 62 central human-readable status explanations for voting, legislation, amendments and ordinary-law cases.
+- Added separate personal-state/role strips so system state and “your status” are not conflated.
+- Added Phase 63 rulebook-aware “What happens next?” guidance, including the distinct AC/PC/PAC/Jury/PPC responsibilities.
+- Added committee constitutional-role explanations and recusal/Decision Membership guidance.
+- Political reducers, thresholds, permissions and Cloud authority remain unchanged.
+
+## 1.2.0-phase63 — My Actions + list navigation
+
+- Added Phase 59 My Actions with personal required actions, upcoming deadlines and recent official updates.
+- Added explanatory “Why am I seeing this?” context to player-specific attention items.
+- Added one-hour local reminder snoozing for non-urgent My Actions items.
+- Added persistent My Actions badges to desktop and mobile navigation.
+- Added Phase 60 shared search/filter/sort controls to Votes, Elections, Laws, Cases, Players and Activity.
+- List preferences persist locally per page, including compact/card view where supported.
+- Added live result counts and distinct filtered-empty states with one-click reset.
+- Added relevance and deadline sorting so personal actions surface before historical records.
+- Political rules, permissions, reducers and Cloud authority remain unchanged.
+- Full regression suite: 42/42 test files pass.
+
+## 1.2.0-phase58 — Frontend second pass: foundations + navigation
+
+### Phase 57 — Design-system foundations
+- Expanded UI tokens for spacing, typography, controls, semantic borders, elevation, motion, focus and layout.
+- Added reusable semantic card/status variants, standardized button sizes/quiet actions, metadata rows, avatars and keyboard-key styling.
+- Preserved the existing light visual identity while giving later second-pass phases a consistent component vocabulary.
+
+### Phase 58 — Navigation and application shell
+- Sidebar sections are collapsible and remember their state per browser.
+- Added actionable vote/case badges alongside the existing notification badge.
+- Added persistent local/Cloud connection context and a clear “Acting as” identity panel.
+- Added Ctrl/Cmd+K command search for pages, players, parties, votes/elections, law proposals, enacted laws and cases.
+- Added recent destinations to command search and matching mobile search access.
+- Browser Back/Forward navigation now uses real history entries and restores remembered route scroll positions.
+- Active navigation is stronger, the current group automatically opens, and mobile navigation carries action badges.
+- Political rules, reducer behavior and Cloud authority remain unchanged.
+
+## 1.2.0-phase56 — Codebase audit hardening
+
+- Added Cloud preflight and authentication timeouts so failed backends cannot leave the UI connecting forever.
+- Fatal Cloud verification/protocol errors now close the bad socket and clear sync state before recovery.
+- Hardened party data: strict `#RRGGBB` colours, safe CSS rendering, and length limits for party/game metadata.
+- Online petitions, signatures and case complainants are explicitly self-bound in the UI; arbitrary-player selection remains offline/test-only.
+- Fixed onboarding so it is only marked complete after the final confirmation.
+- Modal confirm failures are caught and surfaced instead of becoming unhandled promise rejections.
+- Corrected committee names in Help/Profile UI to match the canonical rulebook.
+- Aligned package/release/readme metadata with the `1.2.0-phase56` frontend preview.
+- Added a complete cross-platform `npm test` runner and audit regressions for the issues above.
+
+## 1.2.0-phase56 — Frontend experience phases 53–56
+
+- Phase 53: redesigned Committees and Cases with membership chips, recusal context, per-case workflow tracking, PAC/jury panels and role-aware controls.
+- Phase 54: added richer player profiles plus a global official Activity timeline.
+- Phase 55: added Simple/Advanced interface modes and further mobile presentation refinements.
+- Phase 56: added the contextual Democracy Coach, which derives helpful next steps from canonical state without changing rules or official state.
+- Frontend-only release: shared political core and Cloud Worker behavior remain unchanged.
+
 # Changelog
 
 ## 1.1.3 — Cloud backend persistence hotfix
@@ -168,3 +263,19 @@
 - Updated Recovery and Release pages for Cloud commit/snapshot recovery.
 - Tightened CSP to self-hosted scripts and removed old runtime CDN allowances.
 - Finalized version as `1.1.0` and completed the Phase 34–44 Cloudflare migration roadmap.
+
+## 1.2.0-phase48 — Frontend experience phases 45–48
+
+- Phase 45: simplified Cloud connection experience with visible connection stages, plain-language errors, and advanced diagnostics tucked behind disclosure controls.
+- Phase 46: rebuilt the Dashboard around the local player's roles, attention items, political snapshot, upcoming deadlines, and direct next-action buttons.
+- Phase 47: added a multi-step first-run introduction plus a permanent Help & Guides centre and glossary.
+- Phase 48: added contextual `How this works` guides and reusable visual process trackers across votes, elections, laws, the Constitution, cases, Parliament, Government, Committees, and Multiplayer.
+- No political rules, thresholds, counting methods, or Cloud authority behavior were changed by these frontend phases.
+
+## 1.2.0-phase52 — Frontend experience phases 49–52
+
+- Phase 49: added role-aware presentation for elections, Parliament, Government, laws and the Constitution; irrelevant administration controls are hidden or replaced with clear explanations of why an action is unavailable.
+- Phase 50: redesigned election/vote results with turnout summaries, bar visualisations, ranked-choice round views, approval cutoffs, and an expandable largest-remainder seat calculation explanation.
+- Phase 51: redesigned Parliament and Government with seat maps, party seat-share graphics, majority markers, coalition balance, local-MP highlighting, minister presentation, and role-aware government controls.
+- Phase 52: redesigned Laws and Constitution with per-proposal process trackers, petition progress, statute-book cards, side-by-side constitutional wording comparisons, structured Constitution browsing, and clearer Base-rule unlock progress.
+- Political rules, permissions, Cloud sequencing, vote counting, and constitutional thresholds remain unchanged.
