@@ -74,3 +74,43 @@
   .case-participant-grid{display:grid;grid-template-columns:1fr 1fr}.case-participant-grid .person-chip{justify-content:flex-start;min-width:0}.case-record-block{grid-template-columns:34px minmax(0,1fr);padding:14px}.case-record-step{width:30px;height:30px}
   .case-closed-summary{align-items:flex-start;flex-direction:column;padding:16px}
 }
+
+@media (max-width: 820px){
+  .cloud-guide-layout{grid-template-columns:1fr}
+  .cloud-guide-toc{position:static;overflow:auto;padding:14px}
+  .cloud-guide-toc ol{display:flex;gap:8px;list-style:none;padding:0;margin:10px 0 0;min-width:max-content}
+  .cloud-guide-toc li{counter-increment:none}
+  .cloud-guide-toc a{display:block;padding:9px 11px;border:1px solid var(--border);border-radius:999px;background:var(--surface)}
+  .cloud-guide-step{grid-template-columns:34px minmax(0,1fr);gap:10px;padding:16px}
+  .cloud-step-number{width:32px;height:32px;font-size:.92rem}
+  .cloud-command{align-items:stretch;flex-direction:column}
+  .cloud-command .btn{width:100%}
+  .cloud-url-anatomy{display:grid;grid-template-columns:1fr;gap:8px}
+  .cloud-url-anatomy>b{display:none}
+  .cloud-troubleshooting-grid{grid-template-columns:1fr}
+  .cloud-setup-header .btn-row{width:100%}
+  .cloud-setup-header .btn-row>.btn{flex:1 1 100%}
+}
+
+@media (max-width: 900px){
+  .cloud-guide-prerequisites{grid-template-columns:1fr}
+  .cloud-os-grid{grid-template-columns:1fr}
+  .cloud-debug-flow{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+@media (max-width: 640px){
+  .cloud-choice-grid,.cloud-command-pair,.cloud-debug-flow,.cloud-doc-links{grid-template-columns:1fr}
+  .cloud-example-list>div{grid-template-columns:1fr;gap:4px}
+  .cloud-guide-step{scroll-margin-top:12px}
+  .cloud-guide-toc ol{max-width:100%;padding-bottom:2px}
+  .cloud-guide-toc li{flex:0 0 auto}
+  .cloud-guide-jump{display:block;padding:9px 11px;border:1px solid var(--border);border-radius:999px;background:var(--surface);white-space:nowrap;text-decoration:none!important}
+  .cloud-guide-toc li::marker{content:''}
+  .cloud-command{align-items:stretch;flex-wrap:wrap}
+  .cloud-command code{flex:1 1 100%}
+  .cloud-command .btn{margin-left:auto}
+  .cloud-url-anatomy{display:grid;grid-template-columns:1fr;gap:6px}
+  .cloud-url-anatomy>b{display:none}
+  .cloud-url-anatomy span{padding:7px 0;border-bottom:1px solid var(--border)}
+  .cloud-url-anatomy span:last-child{border-bottom:0}
+}

@@ -76,6 +76,43 @@ Set the deployed Worker URL in **Multiplayer → Cloud backend URL**. Cloud invi
 
 Update `ALLOWED_ORIGINS` if the frontend is deployed somewhere else.
 
+## Create your own `workers.dev` Cloud backend
+
+The live website is not enough to deploy the backend: download the full source repository from <https://github.com/Ben-McGrath-Dev/democracy-web/tree/main>. The repository contains `worker/src/`, `wrangler.jsonc` and the deployment scripts.
+
+Quick path (the in-app guide explains every step and error case):
+
+```bash
+node --version
+npm --version
+npm install
+npx wrangler --version
+npx wrangler login
+npx wrangler whoami
+npx wrangler deploy --dry-run
+npm run cloud:deploy
+```
+
+An optional local smoke test is `npm run cloud:dev`, followed by opening `http://127.0.0.1:8787/health`. Wrangler's local Durable Object data lives in `.wrangler/state`; deleting that folder resets **local development data only**, not rooms stored in the deployed Cloudflare Worker.
+
+On the first Worker deployment Cloudflare may ask you to register an account `workers.dev` subdomain. The included Worker name is `democracy-web-cloud`, so a deployment typically ends up at a URL such as:
+
+```text
+https://democracy-web-cloud.your-subdomain.workers.dev
+```
+
+Test it by opening:
+
+```text
+https://democracy-web-cloud.your-subdomain.workers.dev/health
+```
+
+Then enter the **root Worker URL** (without `/health`) in **Multiplayer → Advanced connection settings → Cloud backend URL**, save it, and use **Publish & Connect**. Invite links automatically include the backend URL for other players.
+
+If Windows PowerShell blocks `npm.ps1`, use Command Prompt or the `.cmd` shims (`npm.cmd install`, `npx.cmd wrangler login`, `npm.cmd run cloud:deploy`) instead of changing the machine execution policy. If you host the frontend on a different site, update `ALLOWED_ORIGINS` in `wrangler.jsonc` before deploying.
+
+A much more detailed, mobile-friendly walkthrough is built into **Help & Guides → Create your own Cloudflare backend** and **Multiplayer → Set up your own Cloudflare link**. It includes Windows/macOS/Linux terminal instructions, Node/npm diagnosis, `wrangler whoami`, dry-run deployment checks, local Durable Object reset guidance, workers.dev routing, CORS/origin diagnosis, WebSocket debugging, Cloudflare Access/route checks, production log tailing, Free-plan limit guidance, update safety, and a step-by-step failure decision tree.
+
 ## Cloud room flow
 
 ### Create / migrate a game

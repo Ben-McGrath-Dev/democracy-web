@@ -21,6 +21,21 @@ export const HELP_GUIDES = {
       'After an interruption, Democracy Web resumes from the last verified commit or a persistent snapshot.'
     ]
   },
+  cloudflareSetup: {
+    title: 'Create your own Cloudflare backend',
+    summary: 'Download the full Democracy Web source from GitHub, deploy the included Worker/Durable Object backend, then paste your workers.dev URL into Multiplayer.',
+    steps: [
+      'Create or sign in to a Cloudflare account; SQLite Durable Objects are supported on the Workers Free plan within its usage limits.',
+      'Download or clone the full source repository from GitHub — the hosted website alone does not contain the deployment project.',
+      'Open a terminal in the repository root and verify Node.js/npm before installing dependencies.',
+      'Optionally run the Worker locally and verify the /health endpoint.',
+      'Check ALLOWED_ORIGINS in wrangler.jsonc if your frontend uses a different domain.',
+      'Sign Wrangler into the correct Cloudflare account and verify it with wrangler whoami.',
+      'Run wrangler deploy --dry-run, then the included cloud:deploy command and register a workers.dev account subdomain if Cloudflare asks.',
+      'Test the public /health endpoint, save the root Worker URL in Multiplayer, Publish & Connect, and test the invite from a second browser/device.',
+      'If anything fails, follow the in-app decision tree and use wrangler tail to capture the actual Worker exception.'
+    ]
+  },
   votes: {
     title: 'Votes',
     summary: 'Votes snapshot an electorate, accept one valid ballot per voter, then count and certify a result.',

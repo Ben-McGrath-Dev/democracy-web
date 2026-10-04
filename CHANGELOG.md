@@ -1,5 +1,21 @@
 ## 1.2.0-phase69 — Laws, Constitution, Committees and Cases workspace polish
 
+## Phase 69 guide update — Self-hosted Cloudflare backend walkthrough
+
+- Expanded the Cloudflare guide into a beginner-first 14-step deployment walkthrough with prerequisites and explicit success checks.
+- Added Windows, macOS and Linux terminal guidance plus Node/npm/Wrangler verification before deployment.
+- Added `wrangler whoami`, `wrangler deploy --dry-run`, deployment/version checks, second-device verification and safe update guidance.
+- Added a structured debugging decision tree covering `origin_not_allowed`, PowerShell script policy, missing Node/npm, OAuth/account mistakes, disabled/protected workers.dev routes, missing rooms, WebSocket failures, stale local Durable Object state, Durable Object configuration errors and usage-limit symptoms.
+- Added official Cloudflare documentation links for Wrangler, workers.dev, local development, Durable Objects and Workers logs.
+- Replaced hash-based guide table-of-contents links with router-safe in-page jump controls.
+- Added a full in-app guide for deploying the Democracy Web Cloud backend to a user's own Cloudflare account.
+- Added direct access from **Multiplayer → Set up your own Cloudflare link** and **Help & Guides**.
+- Added source-download instructions for the GitHub repository, Wrangler login/deploy commands, `workers.dev` subdomain setup, `/health` verification, `ALLOWED_ORIGINS` guidance, update instructions, and troubleshooting.
+- Added Windows-safe `npm.cmd` / `npx.cmd` alternatives for machines where PowerShell blocks npm scripts.
+- Added responsive desktop/mobile guide layouts and one-tap command-copy controls.
+- Added regression coverage for the deployment guide.
+
+
 - Phase 68 gives Laws a remembered **In progress / Statute book / Archive** workspace and makes law details document-first on desktop and mobile.
 - The Constitution now has live section search, stable section deep links, a sticky desktop contents rail, compact horizontal mobile contents and amendment backlinks.
 - Phase 69 prioritises the connected player’s committee work and open matters, with clearer membership, alternates, recusals and decision-stage presentation.
